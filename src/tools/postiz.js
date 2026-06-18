@@ -3,8 +3,11 @@
  * Base URL: POSTIZ_API_URL (https://platform.postiz.com)
  * Auth:     Bearer POSTIZ_API_KEY
  */
+import fs from "fs";
+import path from "path";
 
-const base = () => (process.env.POSTIZ_API_URL || "https://platform.postiz.com").replace(/\/$/, "");
+const base = () =>
+  (process.env.POSTIZ_API_URL || "https://platform.postiz.com").replace(/\/$/, "");
 const key = () => process.env.POSTIZ_API_KEY;
 
 function headers() {
@@ -14,7 +17,6 @@ function headers() {
   };
 }
 
-// ─── Channel cache ────────────────────────────────────────────────────────────
 let _channels = null;
 let _channelsFetched = 0;
 
@@ -43,18 +45,44 @@ export async function getRecentPosts(limit = 15) {
   } catch { return []; }
 }
 
-export async function schedulePost({ integrationId, content, date }) {
+export async function uploadMedia(filePath) {
   if (!key()) throw new Error("POSTIZ_API_KEY not set");
-  const body = {
-    type: "schedule",
-    date,
-    content: [{ id: integrationId, content }],
-  };
-  const res = await fetch(`${base()}/api/v1/posts`, {
+  const fileBuffer = fs.readFileSync(filePath);
+  const fileName = path.basename(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeType = ext === ".mp4" ? "video/mp4" : "image/png";
+  const formData = new FormData();
+  const blob = new Blob([fileBuffer], { type: mimeType });
+  formData.append("file", blob, fileName);
+  const sizeMb = (fileBuffer.length / 1024 / 1024).toFixed(1);
+  console.log(`[Postiz] Uploading ${fileName} (${sizeMb} MB)…`);
+  const res = await fetch(`${base()}/api/v1/upload`, {
     method: "POST",
-    headers: headers(),
-    body: JSON.stringify(body),
+    headers: { Authorization: `Bearer ${key()}` },
+    body: formData,
   });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Postiz upload ${res.status}: ${text}`);
+  const media = JSON.parse(text);
+  console.log(`[Postiz] Upload done. Path: ${media.path || media.url || "(unknown)"}`);
+  return media;
+}
+
+export async function schedulePost({ integrationId, content, date, mediaPath }) {
+  if (!key()) throw new Error("POSTIZ_API_KEY not set");
+  let imageArray = [];
+  if (mediaPath) {
+    try {
+      const media = await uploadMedia(mediaPath);
+      const url = media.path || media.url;
+      if (url) { imageArray = [{ url }]; console.log(`[Postiz] Media URL: ${url}`); }
+    } catch (e) {
+      console.error(`[Postiz] Media upload failed (posting without video): ${e.message}`);
+    }
+  }
+  const contentItem = { id: integrationId, content, ...(imageArray.length ? { image: imageArray } : {}) };
+  const body = { type: "schedule", date, content: [contentItem] };
+  const res = await fetch(`${base()}/api/v1/posts`, { method: "POST", headers: headers(), body: JSON.stringify(body) });
   const text = await res.text();
   if (!res.ok) throw new Error(`Postiz POST /posts ${res.status}: ${text}`);
   try { return JSON.parse(text); } catch { return { raw: text }; }
