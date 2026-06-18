@@ -1,47 +1,61 @@
 /**
- * Postiz / Buffer wrapper.
+ * Postiz cloud API wrapper — schedules posts to connected channels.
+ * Base URL: POSTIZ_API_URL (https://platform.postiz.com)
+ * Auth:     Bearer POSTIZ_API_KEY
  */
-const BACKEND = process.env.POSTING_BACKEND || "postiz";
 
-async function postizSchedule({ caption, platform, videoPath, slot }) {
-  const baseUrl = process.env.POSTIZ_API_URL || "http://localhost:5000";
-  const apiKey = process.env.POSTIZ_API_KEY;
-  if (!apiKey) throw new Error("POSTIZ_API_KEY not set");
-  const scheduledAt = slotToISO(slot);
-  const res = await fetch(`${baseUrl}/api/v1/posts`, {
+const base = () => (process.env.POSTIZ_API_URL || "https://platform.postiz.com").replace(/\/$/, "");
+const key = () => process.env.POSTIZ_API_KEY;
+
+function headers() {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${key()}`,
+  };
+}
+
+// ─── Channel cache ────────────────────────────────────────────────────────────
+let _channels = null;
+let _channelsFetched = 0;
+
+export async function getChannels() {
+  if (_channels && Date.now() - _channelsFetched < 10 * 60 * 1000) return _channels;
+  if (!key()) throw new Error("POSTIZ_API_KEY not set");
+  const res = await fetch(`${base()}/api/v1/integrations`, { headers: headers() });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Postiz GET /integrations ${res.status}: ${text}`);
+  }
+  const data = await res.json();
+  _channels = Array.isArray(data) ? data : data.integrations ?? data.channels ?? [];
+  _channelsFetched = Date.now();
+  console.log(`[Postiz] Loaded ${_channels.length} channel(s)`);
+  return _channels;
+}
+
+export async function getRecentPosts(limit = 15) {
+  try {
+    if (!key()) return [];
+    const res = await fetch(`${base()}/api/v1/posts?limit=${limit}&display=list`, { headers: headers() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : data.posts ?? [];
+  } catch { return []; }
+}
+
+export async function schedulePost({ integrationId, content, date }) {
+  if (!key()) throw new Error("POSTIZ_API_KEY not set");
+  const body = {
+    type: "schedule",
+    date,
+    content: [{ id: integrationId, content }],
+  };
+  const res = await fetch(`${base()}/api/v1/posts`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ content: caption, platform, scheduledAt, ...(videoPath ? { media: [{ url: videoPath }] } : {}) }),
+    headers: headers(),
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Postiz ${res.status}: ${await res.text()}`);
-  return res.json();
-}
-
-async function bufferSchedule({ caption, platform, slot }) {
-  const token = process.env.BUFFER_ACCESS_TOKEN;
-  if (!token) throw new Error("BUFFER_ACCESS_TOKEN not set");
-  const profileMap = JSON.parse(process.env.BUFFER_PROFILE_IDS || "{}");
-  const profileId = profileMap[platform];
-  if (!profileId) throw new Error(`No Buffer profile_id for ${platform}`);
-  const res = await fetch("https://api.bufferapp.com/1/updates/create.json", {
-    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ access_token: token, "profile_ids[]": profileId, text: caption, scheduled_at: Math.floor(slotToISO(slot)/1000) }),
-  });
-  if (!res.ok) throw new Error(`Buffer ${res.status}: ${await res.text()}`);
-  return res.json();
-}
-
-export async function schedulePost(opts) {
-  if (BACKEND === "buffer") return bufferSchedule(opts);
-  return postizSchedule(opts);
-}
-
-function slotToISO(slot) {
-  const now = new Date();
-  const [dayPart, timePart] = slot.split(" ");
-  const [h, m] = timePart.split(":").map(Number);
-  const d = new Date(now);
-  if (dayPart.toLowerCase() === "tomorrow") d.setDate(d.getDate() + 1);
-  d.setHours(h, m, 0, 0);
-  return d.toISOString();
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Postiz POST /posts ${res.status}: ${text}`);
+  try { return JSON.parse(text); } catch { return { raw: text }; }
 }
