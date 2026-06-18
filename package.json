@@ -1,0 +1,28 @@
+{
+  "name": "empire-os-worker",
+  "version": "1.0.0",
+  "description": "Empire OS background worker — AI agents + Edge TTS + Remotion + Postiz",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "render:studio": "npx remotion studio remotion/Root.jsx"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@remotion/bundler": "^4.0.0",
+    "@remotion/renderer": "^4.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "edge-tts": "^1.0.3",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.1",
+    "node-cron": "^3.0.3",
+    "remotion": "^4.0.0",
+    "uuid": "^10.0.0"
+  }
+}
