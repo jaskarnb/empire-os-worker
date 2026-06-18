@@ -1,12 +1,17 @@
-// FRG-05 · Smith — script & caption production
-import { ask, extractJson } from "../claude.js";
+import { ask, extractJson } from '../claude.js';
 
-export async function produce(idea) {
-  const { niche, title, hook } = idea;
-  const txt = await ask(
-    `You are Smith, production agent. Turn this faceless ${niche} idea into a ready package.
-Idea: "${title}". Hook: "${hook}".
-Respond ONLY as JSON: {"script":"40-60 word voiceover","caption":"caption with CTA","hashtags":["#a","#b","#c"]}`
+// Smith produces scripts — needs Sonnet for quality output
+const MODEL = 'claude-sonnet-4-6';
+
+export async function produce({ niche, title, hook }) {
+  const text = await ask(
+    `You are Smith, a faceless content producer for "${niche}".
+Script a 15-second TikTok/Reel:
+Title: "${title}"
+Hook: "${hook}"
+Return JSON: { "script": "...", "caption": "...", "hashtags": ["..."] }
+Keep script under 120 words. Caption under 150 chars.`,
+    { maxTokens: 600, model: MODEL }
   );
-  return extractJson(txt);
+  return extractJson(text) ?? { script: text, caption: hook, hashtags: [] };
 }
