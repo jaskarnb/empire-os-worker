@@ -1,18 +1,23 @@
 /**
- * Cron jobs — optional automated standup.
+ * Cron jobs — daily meeting + posting pipeline.
+ * Runs at STANDUP_HOUR (default 7) UTC every day when AUTO_STANDUP=true.
  */
 import cron from "node-cron";
-import { standup } from "./agents/atlas.js";
+import { runDailyMeeting } from "./agents/dailyMeeting.js";
 
 export function startCronJobs() {
-  if (process.env.AUTO_STANDUP !== "true") return;
+  if (process.env.AUTO_STANDUP !== "true") {
+    console.log("[cron] AUTO_STANDUP=false — skipping scheduled jobs");
+    return;
+  }
   const hour = process.env.STANDUP_HOUR || "7";
   cron.schedule(`0 ${hour} * * *`, async () => {
-    console.log("[cron] Atlas standup running…");
+    console.log(`[cron] Daily meeting triggered at ${new Date().toISOString()}`);
     try {
-      const brief = await standup({ pageCount: 8, followersK: 496, revMonth: 12690, ideasInPipeline: 0 });
-      console.log("[Atlas standup]\n" + brief);
-    } catch (e) { console.error("[cron] standup failed:", e.message); }
+      await runDailyMeeting();
+    } catch (e) {
+      console.error("[cron] Daily meeting failed:", e.message, e.stack);
+    }
   });
-  console.log(`[cron] Atlas standup scheduled at ${hour}:00 UTC`);
+  console.log(`[cron] Daily meeting scheduled at ${hour}:00 UTC`);
 }
