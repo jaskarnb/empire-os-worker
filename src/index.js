@@ -1,23 +1,41 @@
-import "dotenv/config";
-import express from "express";
-import cors from "cors";
-import rateLimit from "express-rate-limit";
-import { router } from "./routes.js";
+import http from "http";
 import { startCronJobs } from "./cron.js";
+import { runDailyMeeting } from "./agents/dailyMeeting.js";
+import { runBrainRotMeeting } from "./agents/brainRotMeeting.js";
+import { runKidsMeeting } from "./agents/kidsMeeting.js";
 
-const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || "*" }));
-app.use(express.json({ limit: "2mb" }));
+// ── HTTP server: /health + /standup ──────────────────────────────────────────
+const server = http.createServer(async (req, res) => {
+  if (req.method === "GET" && req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "ok", ts: new Date().toISOString() }));
+    return;
+  }
 
-const limiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false });
-app.use("/api", limiter);
+  if (req.method === "POST" && req.url === "/standup") {
+    res.writeHead(202, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "running", ts: new Date().toISOString() }));
+    // Fire all 3 meetings async after response
+    (async () => {
+      console.log("[Standup] Manual trigger received");
+      try { await runDailyMeeting();    } catch (e) { console.error("[Standup] dailyMeeting:", e.message); }
+      try { await runBrainRotMeeting(); } catch (e) { console.error("[Standup] brainRotMeeting:", e.message); }
+      try { await runKidsMeeting();     } catch (e) { console.error("[Standup] kidsMeeting:", e.message); }
+      console.log("[Standup] Complete");
+    })();
+    return;
+  }
 
-app.use("/api", router);
-app.get("/health", (_req, res) => res.json({ status: "ok", ts: new Date().toISOString() }));
-
-app.listen(PORT, () => {
-  console.log(`[empire-os] worker online → http://localhost:${PORT}`);
-  startCronJobs();
+  res.writeHead(404);
+  res.end("Not found");
 });
+
+server.listen(PORT, () => {
+  console.log(`[Empire OS] Worker online — port ${PORT}`);
+});
+
+// ── Cron ─────────────────────────────────────────────────────────────────────
+startCronJobs();
+console.log("[Empire OS] Cron scheduled.");
