@@ -1,7 +1,7 @@
 /**
  * Empire OS — Video Generator
  * Pipeline: edge-tts (voiceover) → Python/Pillow (frame) → ffmpeg (MP4)
- * Output: 1080x1920 vertical MP4 (9:16) for TikTok / YouTube Shorts
+ * Output: 1080×1920 vertical MP4 (9:16), optimised for TikTok / YouTube Shorts
  */
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -12,7 +12,17 @@ import { fileURLToPath } from "url";
 const execAsync = promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function generateVideo({ script, hook, niche = "" }) {
+/**
+ * Generate a faceless short-form video.
+ *
+ * @param {string}  script - Full voiceover narration (100–200 words)
+ * @param {string}  hook   - Short punchy hook displayed on screen
+ * @param {string}  niche  - Used for accent colour (finance/crime/tech/fitness)
+ * @param {string}  style  - Visual style: "dark" | "brainrot" | "kids"
+ * @param {string}  voice  - edge-tts voice name (optional, overrides env/default)
+ * @returns {Promise<string>} Absolute path to the generated .mp4
+ */
+export async function generateVideo({ script, hook, niche = "", style = "dark", voice }) {
   const videoDir = process.env.VIDEO_DIR || "./output/video";
   const audioDir = process.env.AUDIO_DIR || "./output/audio";
 
@@ -24,42 +34,73 @@ export async function generateVideo({ script, hook, niche = "" }) {
   const framePath = path.resolve(videoDir, `${id}_frame.png`);
   const videoPath = path.resolve(videoDir, `${id}.mp4`);
 
-  // 1. Voiceover
-  const voice = process.env.DEFAULT_TTS_VOICE || "en-US-AriaNeural";
+  // ── 1. Voiceover via edge-tts ──────────────────────────────────────────────
+  // Pick voice: caller override → env var → style default → global default
+  const styleVoiceMap = {
+    dark:     "en-US-AriaNeural",
+    brainrot: "en-US-JennyNeural",
+    kids:     "en-US-AnaNeural",
+  };
+  const ttsVoice = voice || process.env.DEFAULT_TTS_VOICE || styleVoiceMap[style] || "en-US-AriaNeural";
+
+  // Speaking rate: brainrot goes fast, kids goes slow, dark is default
+  const styleRateMap = { brainrot: "+15%", kids: "-10%" };
+  const rate = styleRateMap[style];
+  const rateFlag = rate ? `--prosody-rate "${rate}"` : "";
+
+  // Sanitise: edge-tts chokes on smart quotes and non-ASCII control chars
   const safeScript = script
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[""]/g, '"')
+    .replace(/['']/g, "'")
     .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, " ")
     .replace(/"/g, '\\"')
     .slice(0, 1200);
 
-  console.log(`[VideoGen] TTS (${voice})…`);
-  await execAsync(`edge-tts --voice "${voice}" --text "${safeScript}" --write-media "${audioPath}"`, { timeout: 60_000 });
+  console.log(`[VideoGen] TTS voice=${ttsVoice} style=${style}${rate ? " rate=" + rate : ""}���");
+  await execAsync(
+    `edge-tts --voice "${ttsVoice}" ${rateFlag} --text "${safeScript}" --write-media "${audioPath}"`,
+    { timeout: 60_000 }
+  );
 
-  // 2. Duration
-  const { stdout: durOut } = await execAsync(`ffprobe -v quiet -of csv=p=0 -show_entries format=duration "${audioPath}"`);
+  // ── 2. Audio duration ──────────────────────────────────────────────────────
+  const { stdout: durOut } = await execAsync(
+    `ffprobe -v quiet -of csv=p=0 -show_entries format=duration "${audioPath}"`
+  );
   const duration = Math.min(Math.ceil(parseFloat(durOut.trim()) || 45), 58);
   console.log(`[VideoGen] Duration: ${duration}s`);
 
-  // 3. Background frame
+  // ── 3. Background frame via Python/Pillow ──────────────────────────────────
   const frameScript = path.resolve(__dirname, "generateFrame.py");
-  const frameArgs = JSON.stringify({ hook: hook.slice(0, 80), output: framePath, niche }).replace(/'/g, "'\\''");
-  console.log(`[VideoGen] Rendering frame…`);
+  const frameArgs = JSON.stringify({
+    hook: hook.slice(0, 80),
+    output: framePath,
+    niche,
+    style,
+  }).replace(/'/g, "'\\''");
+
+  console.log(`[VideoGen] Rendering frame (${style})…`);
   await execAsync(`python3 "${frameScript}" '${frameArgs}'`, { timeout: 30_000 });
 
-  // 4. Encode MP4
-  console.log(`[VideoGen] Encoding…`);
+  // ── 4. Encode final MP4 ────────────────────────────────────────────────────
+  console.log(`[VideoGen] Encoding MP4…`);
   await execAsync(
-    [`ffmpeg -y`, `-loop 1 -i "${framePath}"`, `-i "${audioPath}"`,
-     "-c:v libx264 -preset ultrafast -tune stillimage -crf 28",
-     `-c:a aac -b:a 128k -t ${duration}`,
-     "-pix_fmt yuv420p",
-     `-vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black"`,
-     `"${videoPath}"`].join(" "),
+    [
+      "ffmpeg -y",
+      `-loop 1 -i "${framePath}"`,
+      `-i "${audioPath}"`,
+      "-c:v libx264 -preset ultrafast -tune stillimage -crf 28",
+      `-c:a aac -b:a 128k -t ${duration}`,
+      "-pix_fmt yuv420p",
+      `-vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black"`,
+      `"${videoPath}"`,
+    ].join(" "),
     { timeout: 180_000 }
   );
 
-  for (const f of [audioPath, framePath]) { try { fs.unlinkSync(f); } catch {} }
+  // ── 5. Cleanup temp files ──────────────────────────────────────────────────
+  for (const f of [audioPath, framePath]) {
+    try { fs.unlinkSync(f); } catch {}
+  }
 
   console.log(`[VideoGen] ✓ ${videoPath}`);
   return videoPath;
