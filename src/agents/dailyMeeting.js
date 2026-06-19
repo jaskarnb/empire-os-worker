@@ -13,6 +13,14 @@
  *   tech   -> Hostinger (~$60/sale, 60% commission)
  *   lift   -> WHOOP ($30/referral)
  *   hub    -> Hostinger (~$60/sale)
+ *
+ * POST SCHEDULE (optimised for US peak engagement, times in UTC):
+ *   vault  3x/day: 11:00, 17:00, 00:00  (7am, 1pm, 8pm EST)
+ *   alibi  3x/day: 00:00, 02:00, 22:00  (8pm, 10pm, 6pm EST — night audience)
+ *   tech   3x/day: 12:00, 16:00, 23:00  (8am, 12pm, 7pm EST)
+ *   lift   2x/day: 11:00, 17:00         (7am, 1pm EST)
+ *   hub    2x/day: 13:00, 22:00         (9am, 6pm EST)
+ *   TOTAL: 13 videos/day = 390/month
  */
 import fs from "fs";
 import Anthropic from "@anthropic-ai/sdk";
@@ -25,36 +33,36 @@ const CHANNEL_CONFIG = [
   {
     match: "vault",
     niche: "Finance, wealth building, passive income, money mindset for 18-35 year olds",
-    postsPerDay: 2,
-    times: ["12:00", "23:00"],
+    postsPerDay: 3,
+    times: ["11:00", "17:00", "00:00"],
     affiliate: { name: "Webull", offer: "Get a FREE stock (worth up to $1,600) when you sign up", cta: "Get your free stock -> link in bio" },
   },
   {
     match: "alibi",
     niche: "True crime, cold cases, murder mysteries, criminal psychology",
-    postsPerDay: 2,
-    times: ["13:00", "22:00"],
+    postsPerDay: 3,
+    times: ["00:00", "02:00", "22:00"],
     affiliate: { name: "NordVPN", offer: "67% off + 3 months free", cta: "Lock down your browsing -> link in bio" },
   },
   {
     match: "tech",
     niche: "AI tools and tech news explained simply for everyday people",
-    postsPerDay: 2,
-    times: ["11:00", "21:00"],
+    postsPerDay: 3,
+    times: ["12:00", "16:00", "23:00"],
     affiliate: { name: "Hostinger", offer: "Build your own AI-powered website for $2.99/mo (80% off)", cta: "Start your site for $2.99 -> link in bio" },
   },
   {
     match: "lift",
     niche: "Fitness, gym motivation, workout tips, body transformation",
-    postsPerDay: 1,
-    times: ["14:00"],
+    postsPerDay: 2,
+    times: ["11:00", "17:00"],
     affiliate: { name: "WHOOP", offer: "Get 1 month free on WHOOP", cta: "Try WHOOP free -> link in bio" },
   },
   {
     match: "hub",
     niche: "AI productivity tools and automation for beginners",
-    postsPerDay: 1,
-    times: ["15:00"],
+    postsPerDay: 2,
+    times: ["13:00", "22:00"],
     affiliate: { name: "Hostinger", offer: "Launch your automation business online for $2.99/mo", cta: "Get your site live today -> link in bio" },
   },
 ];
