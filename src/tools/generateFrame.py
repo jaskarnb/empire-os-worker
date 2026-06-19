@@ -3,7 +3,7 @@
 Generate a 1080x1920 background frame for Empire OS faceless videos.
 Supports three visual styles:
   dark     — sleek dark + niche accent (adult channels)
-  brainrot — cont chaos (Gen Z / meme channels)
+  brainrot — neon split chaos (Gen Z / meme channels)
   kids     — bright sky, sun, stars (children's channels)
 
 Usage:
@@ -46,3 +46,218 @@ def load_font(size):
         except Exception:
             continue
     return ImageFont.load_default()
+
+def draw_outlined_text(draw, x, y, text, font, fill, outline, width=5):
+    """Draw text with a thick outline — used by brainrot & kids styles."""
+    for dx in range(-width, width + 1):
+        for dy in range(-width, width + 1):
+            if dx != 0 or dy != 0:
+                draw.text((x + dx, y + dy), text, font=font, fill=outline)
+    draw.text((x, y), text, font=font, fill=fill)
+
+# ── DARK style — adult channels ────────────────────────────────────────────────
+def render_dark(draw, W, H, hook, niche):
+    accent = get_accent(niche)
+
+    # Gradient accent bars
+    for i in range(8):
+        r, g, b = accent
+        draw.rectangle([0, i * 2, W, i * 2 + 2], fill=(r, g, b))
+        draw.rectangle([0, H - (i * 2 + 2), W, H - i * 2], fill=(r, g, b))
+    draw.rectangle([0, 0, W, 14], fill=accent)
+    draw.rectangle([0, H - 14, W, H], fill=accent)
+
+    font_big   = load_font(88)
+    font_small = load_font(38)
+
+    lines = textwrap.wrap(hook.upper(), width=13) or [hook.upper()[:13]]
+    line_h = 110
+    y0 = (H - len(lines) * line_h) // 2 - 40
+
+    for i, line in enumerate(lines):
+        bbox = draw.textbbox((0, 0), line, font=font_big)
+        tw = bbox[2] - bbox[0]
+        x = (W - tw) // 2
+        y = y0 + i * line_h
+        draw.text((x + 4, y + 4), line, font=font_big, fill=(0, 0, 0))   # shadow
+        draw.text((x, y),          line, font=font_big, fill=(255, 255, 255))
+
+    cta = "WATCH TILL THE END"
+    bbox = draw.textbbox((0, 0), cta, font=font_small)
+    draw.text(((W - (bbox[2] - bbox[0])) // 2, H - 100), cta, font=font_small, fill=accent)
+
+
+# ── BRAINROT style — Gen Z / meme channels ────────────────────────────────────
+def render_brainrot(draw, W, H, hook, niche):
+    HOT_PINK   = (255, 0, 110)
+    ELEC_BLUE  = (58, 134, 255)
+    NEON_YELLOW = (255, 230, 0)
+    NEON_GREEN  = (0, 255, 120)
+    BLACK       = (0, 0, 0)
+
+    # Split background: left pink, right blue
+    draw.rectangle([0, 0, W // 2, H], fill=HOT_PINK)
+    draw.rectangle([W // 2, 0, W, H], fill=ELEC_BLUE)
+
+    # Yellow diagonal slash dividing the two halves
+    draw.polygon(
+        [(W // 2 - 55, 0), (W // 2 + 55, 0),
+         (W // 2 + 5, H),  (W // 2 - 105, H)],
+        fill=NEON_YELLOW
+    )
+
+    # Zebra bars — top
+    bar_h = 14
+    for i in range(7):
+        c = BLACK if i % 2 == 0 else NEON_YELLOW
+        draw.rectangle([0, i * bar_h, W, (i + 1) * bar_h], fill=c)
+    # Zebra bars — bottom
+    for i in range(7):
+        c = BLACK if i % 2 == 0 else NEON_YELLOW
+        draw.rectangle([0, H - (i + 1) * bar_h, W, H - i * bar_h], fill=c)
+
+    # Decorative neon boxes (deterministic positions)
+    boxes = [(40, 130, 120, 210), (910, 180, 990, 260),
+             (40, 1650, 120, 1730), (910, 1700, 990, 1780)]
+    for b in boxes:
+        draw.rectangle(b, fill=NEON_GREEN, outline=BLACK, width=4)
+
+    # "!!" corner accents
+    font_deco = load_font(80)
+    draw_outlined_text(draw, 35,  290, "!!", font_deco, NEON_YELLOW, BLACK, width=5)
+    draw_outlined_text(draw, 900, 290, "!!", font_deco, NEON_YELLOW, BLACK, width=5)
+
+    # Main hook — huge, neon-yellow, thick black outline
+    font_big   = load_font(96)
+    font_small = load_font(48)
+
+    lines = textwrap.wrap(hook.upper(), width=10) or [hook.upper()[:10]]
+    line_h = 125
+    y0 = (H - len(lines) * line_h) // 2 - 70
+
+    for i, line in enumerate(lines):
+        bbox = draw.textbbox((0, 0), line, font=font_big)
+        tw = bbox[2] - bbox[0]
+        x = (W - tw) // 2
+        y = y0 + i * line_h
+        draw_outlined_text(draw, x, y, line, font_big, NEON_YELLOW, BLACK, width=7)
+
+    # CTA
+    cta = "STAY TIL THE END!!!"
+    bbox = draw.textbbox((0, 0), cta, font=font_small)
+    cw = bbox[2] - bbox[0]
+    draw_outlined_text(draw, (W - cw) // 2, H - 200, cta, font_small, NEON_GREEN, BLACK, width=5)
+
+
+# ── KIDS style — children's channels ─────────────────────────────────────────
+def render_kids(draw, W, H, hook, niche):
+    WHITE   = (255, 255, 255)
+    YELLOW  = (255, 220, 40)
+    CORAL   = (255, 90, 70)
+    PURPLE  = (175, 90, 255)
+    SKY     = (80, 180, 255)
+    BLACK   = (30, 10, 60)
+
+    # Sky gradient (fake with horizontal strips)
+    steps = 40
+    for i in range(steps):
+        t = i / (steps - 1)
+        r = int(120 - t * 40)
+        g = int(195 - t * 30)
+        b = int(255 - t * 20)
+        y_top = i * (H // steps)
+        y_bot = (i + 1) * (H // steps) + 1
+        draw.rectangle([0, y_top, W, y_bot], fill=(r, g, b))
+
+    # Big sun (top-right)
+    sun_cx, sun_cy, sun_r = 900, 220, 130
+    # Rays
+    for angle in range(0, 360, 30):
+        rad = math.radians(angle)
+        x1 = sun_cx + int((sun_r + 10) * math.cos(rad))
+        y1 = sun_cy + int((sun_r + 10) * math.sin(rad))
+        x2 = sun_cx + int((sun_r + 60) * math.cos(rad))
+        y2 = sun_cy + int((sun_r + 60) * math.sin(rad))
+        draw.line([(x1, y1), (x2, y2)], fill=YELLOW, width=10)
+    draw.ellipse(
+        [sun_cx - sun_r, sun_cy - sun_r, sun_cx + sun_r, sun_cy + sun_r],
+        fill=YELLOW, outline=(255, 180, 0), width=6
+    )
+    # Sun face (simple)
+    font_face = load_font(60)
+    draw.text((sun_cx - 30, sun_cy - 32), ":)", font=font_face, fill=(200, 120, 0))
+
+    # Fluffy cloud (top-left)
+    cloud_circles = [(140, 180, 75), (210, 150, 90), (295, 175, 75), (195, 200, 65)]
+    for cx, cy, cr in cloud_circles:
+        draw.ellipse([cx - cr, cy - cr, cx + cr, cy + cr], fill=WHITE)
+
+    # Scattered stars
+    font_star = load_font(55)
+    star_pos = [(80, 380), (960, 330), (70, 860), (960, 800),
+                (520, 180), (140, 1480), (920, 1530), (500, 1660)]
+    for sx, sy in star_pos:
+        draw_outlined_text(draw, sx, sy, "*", font_star, YELLOW, (200, 120, 0), width=2)
+
+    # Rainbow stripe banner near bottom
+    rainbow = [(255, 0, 0), (255, 140, 0), (255, 230, 0),
+               (0, 190, 0), (0, 100, 255), (160, 0, 220)]
+    stripe = 22
+    for idx, color in enumerate(rainbow):
+        y_top = H - 280 + idx * stripe
+        draw.rectangle([0, y_top, W, y_top + stripe], fill=color)
+
+    # Main hook — bubbly, colourful, thick dark outline
+    font_big   = load_font(88)
+    font_small = load_font(46)
+
+    lines = textwrap.wrap(hook.upper(), width=12) or [hook.upper()[:12]]
+    line_h = 112
+    y0 = (H - len(lines) * line_h) // 2 - 30
+
+    text_colors = [CORAL, PURPLE, YELLOW, SKY]
+    for i, line in enumerate(lines):
+        bbox = draw.textbbox((0, 0), line, font=font_big)
+        tw = bbox[2] - bbox[0]
+        x = (W - tw) // 2
+        y = y0 + i * line_h
+        draw_outlined_text(draw, x, y, line, font_big, text_colors[i % len(text_colors)], BLACK, width=7)
+
+    # CTA
+    cta = "WATCH MORE!"
+    bbox = draw.textbbox((0, 0), cta, font=font_small)
+    cw = bbox[2] - bbox[0]
+    draw_outlined_text(draw, (W - cw) // 2, H - 185, cta, font_small, WHITE, BLACK, width=5)
+
+
+# ── Main dispatcher ────────────────────────────────────────────────────────────
+def generate_frame(hook, output_path, niche="", style="dark"):
+    W, H = 1080, 1920
+
+    # Base background colour (overwritten by render functions for brainrot/kids)
+    bg = (10, 10, 20) if style == "dark" else (120, 195, 255)
+    img  = Image.new("RGB", (W, H), color=bg)
+    draw = ImageDraw.Draw(img)
+
+    if style == "brainrot":
+        render_brainrot(draw, W, H, hook, niche)
+    elif style == "kids":
+        render_kids(draw, W, H, hook, niche)
+    else:
+        render_dark(draw, W, H, hook, niche)
+
+    img.save(output_path, "PNG")
+    print(f"[generateFrame] Saved: {output_path} (style={style})", flush=True)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print('Usage: python3 generateFrame.py \'{"hook":"...","output":"...","niche":"...","style":"dark"}\'')
+        sys.exit(1)
+    args = json.loads(sys.argv[1])
+    generate_frame(
+        args["hook"],
+        args["output"],
+        args.get("niche", ""),
+        args.get("style", "dark"),
+    )
