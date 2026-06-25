@@ -22,7 +22,11 @@ function incidentRows(incidents) {
   `).join("");
 }
 
-export function renderOpsDashboard({ incidents = [] } = {}) {
+export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
+  const initialStatus = lastReport?.status || "idle";
+  const initialUpdated = lastReport?.finishedAt ? new Date(lastReport.finishedAt).toLocaleTimeString() : "never";
+  const initialReport = lastReport ? escapeHtml(JSON.stringify(lastReport, null, 2)) : "Click Run Check to execute watchers.";
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -64,9 +68,9 @@ export function renderOpsDashboard({ incidents = [] } = {}) {
   </header>
   <main>
     <section class="grid">
-      <div class="panel"><h2>Latest Status</h2><div id="status" class="metric">idle</div></div>
+      <div class="panel"><h2>Latest Status</h2><div id="status" class="metric">${escapeHtml(initialStatus)}</div></div>
       <div class="panel"><h2>Incidents</h2><div id="incidentCount" class="metric">${incidents.length}</div></div>
-      <div class="panel"><h2>Last Updated</h2><div id="updated" class="metric">now</div></div>
+      <div class="panel"><h2>Last Updated</h2><div id="updated" class="metric">${escapeHtml(initialUpdated)}</div></div>
     </section>
     <section class="panel">
       <h2>Incident Memory</h2>
@@ -77,7 +81,7 @@ export function renderOpsDashboard({ incidents = [] } = {}) {
     </section>
     <section class="panel" style="margin-top:16px">
       <h2>Latest Check Report</h2>
-      <pre id="report" class="muted">Click Run Check to execute watchers.</pre>
+      <pre id="report" class="muted">${initialReport}</pre>
     </section>
   </main>
   <script>
@@ -106,7 +110,11 @@ export function renderOpsDashboard({ incidents = [] } = {}) {
       const res = await fetch('/ops/status');
       const data = await res.json();
       drawIncidents(data.recentIncidents || []);
-      updatedEl.textContent = new Date().toLocaleTimeString();
+      if (data.lastReport) {
+        statusEl.textContent = data.lastReport.status || 'unknown';
+        reportEl.textContent = JSON.stringify(data.lastReport, null, 2);
+        updatedEl.textContent = data.lastReport.finishedAt ? new Date(data.lastReport.finishedAt).toLocaleTimeString() : new Date().toLocaleTimeString();
+      }
     }
     runBtn.addEventListener('click', async () => {
       runBtn.disabled = true;
