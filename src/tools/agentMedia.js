@@ -27,6 +27,16 @@ function actorDescription({ niche = "", style = "dark" }) {
   return "a relatable short-form creator speaking directly to camera, natural lighting, high-retention vertical UGC style";
 }
 
+function extractVideoUrl(data) {
+  if (data.final_output?.video_url) return data.final_output.video_url;
+  if (data.output?.video_url) return data.output.video_url;
+  if (Array.isArray(data.artifacts)) {
+    const artifact = data.artifacts.find((item) => String(item.url || "").includes(".mp4"));
+    if (artifact?.url) return artifact.url;
+  }
+  return null;
+}
+
 async function startSkillRun({ description, script, duration }) {
   const res = await fetch(`${AGENT_MEDIA_API}/v1/skills/make_ugc_video/run`, {
     method: "POST",
@@ -63,7 +73,7 @@ async function pollSkillRun(runId) {
     const status = data.status || data.state;
 
     if (status === "succeeded" || status === "completed" || status === "success") {
-      const videoUrl = data.final_output?.video_url || data.output?.video_url || data.artifacts?.find?.((a) => String(a.url || "").includes(".mp4"))?.url;
+      const videoUrl = extractVideoUrl(data);
       if (!videoUrl) throw new Error(`AgentMedia succeeded but returned no video URL: ${text}`);
       return { videoUrl, raw: data };
     }
