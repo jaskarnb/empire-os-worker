@@ -1,0 +1,39 @@
+name: Worker Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - codex/renderguard-video-pipeline
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check src/index.js
+          node --check src/cron.js
+          node --check src/tools/renderGuard.js
+          node --check src/tools/videoGen.js
+          node --check src/tools/postiz.js
+          node --check src/tools/agentMedia.js
+          node --check src/tools/opsIncidents.js
+          node --check src/tools/opsDashboard.js
+          node --check src/tools/policyGuard.js
+          node --check src/watchers/opsWatchers.js
+          node --check src/agents/dailyMeeting.js
+          node --check src/agents/brainRotMeeting.js
+          node --check src/agents/kidsMeeting.js
+          node --check scripts/policyGuardSmoke.js
+
+      - name: Run policy smoke test
+        run: npm run smoke:policy
