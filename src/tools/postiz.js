@@ -18,6 +18,10 @@ function headers() {
   };
 }
 
+function isRemoteUrl(value) {
+  return /^https?:\/\//i.test(String(value || ""));
+}
+
 let _channels = null;
 let _channelsFetched = 0;
 
@@ -51,6 +55,7 @@ export async function getRecentPosts(limit = 15) {
 export async function uploadMedia(filePath) {
   if (!key()) throw new Error("POSTIZ_API_KEY not set");
   if (!filePath) throw new Error("Postiz upload requires a media path");
+  if (isRemoteUrl(filePath)) return { url: filePath };
 
   await assertRenderableVideo(filePath, { minDuration: 8, requireAudio: true, requireVertical: true });
 
@@ -83,16 +88,19 @@ export async function uploadMedia(filePath) {
   return media;
 }
 
-export async function schedulePost({ integrationId, content, date, mediaPath, requireMedia = true }) {
+export async function schedulePost({ integrationId, content, date, mediaPath, mediaUrl, requireMedia = true }) {
   if (!key()) throw new Error("POSTIZ_API_KEY not set");
   if (!integrationId) throw new Error("Postiz schedule requires integrationId");
   if (!content) throw new Error("Postiz schedule requires content");
-  if (requireMedia && !mediaPath) throw new Error("RenderGuard: refusing to schedule without final_video.mp4");
+
+  const mediaSource = mediaUrl || mediaPath;
+  if (requireMedia && !mediaSource) throw new Error("RenderGuard: refusing to schedule without video media");
 
   let imageArray = [];
-  if (mediaPath) {
-    const media = await uploadMedia(mediaPath);
+  if (mediaSource) {
+    const media = await uploadMedia(mediaSource);
     const url = media.path || media.url;
+    if (!url) throw new Error("Postiz media step produced no URL");
     imageArray = [{ url }];
     console.log(`[Postiz] Media URL: ${url}`);
   }
