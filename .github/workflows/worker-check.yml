@@ -36,3 +36,7 @@ jobs:
           node --check src/agents/dailyMeeting.js
           node --check src/agents/brainRotMeeting.js
           node --check src/agents/kidsMeeting.js
+          node --check scripts/policyGuardSmoke.js
+
+      - name: Run policy smoke test
+        run: npm run smoke:policy
