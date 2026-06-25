@@ -3,6 +3,7 @@ import { startCronJobs } from "./cron.js";
 import { runDailyMeeting } from "./agents/dailyMeeting.js";
 import { runBrainRotMeeting } from "./agents/brainRotMeeting.js";
 import { runKidsMeeting } from "./agents/kidsMeeting.js";
+import { renderOpsDashboard } from "./tools/opsDashboard.js";
 import { readRecentIncidents } from "./tools/opsIncidents.js";
 import { runOpsWatchers } from "./watchers/opsWatchers.js";
 
@@ -13,12 +14,22 @@ function sendJson(res, statusCode, body) {
   res.end(JSON.stringify(body));
 }
 
-// HTTP server: /health, /standup, /ops/status, /ops/check
+function sendHtml(res, statusCode, body) {
+  res.writeHead(statusCode, { "Content-Type": "text/html; charset=utf-8" });
+  res.end(body);
+}
+
+// HTTP server: /health, /standup, /ops/status, /ops/check, /ops/dashboard
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
 
   if (req.method === "GET" && url.pathname === "/health") {
     sendJson(res, 200, { status: "ok", ts: new Date().toISOString() });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/ops/dashboard") {
+    sendHtml(res, 200, renderOpsDashboard({ incidents: readRecentIncidents(25) }));
     return;
   }
 
