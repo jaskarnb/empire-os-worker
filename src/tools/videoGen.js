@@ -75,7 +75,7 @@ async function renderAudio({ audioPath, script, style, voice }) {
 
   const ttsVoice = voice || process.env.DEFAULT_TTS_VOICE || styleVoiceMap[style] || "en-US-AriaNeural";
   const args = ["--voice", ttsVoice];
-  if (styleRateMap[style]) args.push("--prosody-rate", styleRateMap[style]);
+  if (styleRateMap[style]) args.push("--rate", styleRateMap[style]);
   args.push("--text", cleanText(script, 1200), "--write-media", audioPath);
 
   console.log(`[VideoGen] TTS voice=${ttsVoice} style=${style}${styleRateMap[style] ? ` rate=${styleRateMap[style]}` : ""}`);
@@ -94,8 +94,8 @@ async function encodeVideo({ framePaths, audioPath, videoPath, duration }) {
 
   const filters = framePaths.map((_, index) => {
     const zoomExpr = index % 2 === 0
-      ? "min(zoom+0.0015,1.08)"
-      : "max(zoom-0.0010,1.00)";
+      ? "min(zoom+0.0015\\,1.08)"
+      : "max(zoom-0.0010\\,1.00)";
     const panX = index % 2 === 0 ? "iw/2-(iw/zoom/2)" : "iw/2-(iw/zoom/2)+sin(on/20)*20";
     const panY = index % 2 === 0 ? "ih/2-(ih/zoom/2)+sin(on/18)*18" : "ih/2-(ih/zoom/2)";
     return `[${index}:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},zoompan=z='${zoomExpr}':x='${panX}':y='${panY}':d=${sceneFrames}:s=${WIDTH}x${HEIGHT}:fps=${FPS},trim=duration=${sceneDuration.toFixed(3)},setpts=PTS-STARTPTS[v${index}]`;
