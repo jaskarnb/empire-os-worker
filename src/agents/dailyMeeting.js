@@ -5,6 +5,7 @@
 import fs from "fs";
 import Anthropic from "@anthropic-ai/sdk";
 import { getChannels, getRecentPosts, schedulePost } from "../tools/postiz.js";
+import { assertPolicySafePost } from "../tools/policyGuard.js";
 import { generateVideo } from "../tools/videoGen.js";
 
 const client = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -205,6 +206,7 @@ export async function runDailyMeeting() {
       console.log(`\n[Smith] "${post.title}"`);
 
       try {
+        assertPolicySafePost({ post, channelName: name, audience: "general", niche: config.niche });
         videoPath = await generateVideo({ script: post.script || post.caption, hook: post.hook, niche: config.niche, style: "dark" });
         console.log(`[Nova] Scheduling video at ${date}...`);
         await schedulePost({ integrationId: ch.id, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
