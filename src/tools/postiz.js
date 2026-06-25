@@ -1,25 +1,55 @@
 /**
- * Postiz cloud API wrapper - schedules posts to connected channels.
- * Base URL: POSTIZ_API_URL (https://platform.postiz.com)
- * Auth:     Bearer POSTIZ_API_KEY
+ * Postiz public API wrapper - schedules posts to connected channels.
+ * Cloud base URL: https://api.postiz.com/public/v1
+ * Self-hosted base URL: https://{your-domain}/api/public/v1
+ * Auth: Authorization: POSTIZ_API_KEY
  */
 import fs from "fs";
 import path from "path";
 import { assertRenderableVideo } from "./renderGuard.js";
 
-const base = () =>
-  (process.env.POSTIZ_API_URL || "https://platform.postiz.com").replace(/\/$/, "");
+const CLOUD_BASE = "https://api.postiz.com/public/v1";
+
+function normalizeBase(rawValue) {
+  const raw = String(rawValue || CLOUD_BASE).replace(/\/$/, "");
+  if (/\/public\/v1$/i.test(raw)) return raw;
+  if (/\/api\/v1$/i.test(raw)) return raw.replace(/\/api\/v1$/i, "/api/public/v1");
+  if (/platform\.postiz\.com$/i.test(raw) || /api\.postiz\.com$/i.test(raw)) return CLOUD_BASE;
+  return `${raw}/api/public/v1`;
+}
+
+const base = () => normalizeBase(process.env.POSTIZ_API_URL);
 const key = () => process.env.POSTIZ_API_KEY;
 
 function headers() {
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${key()}`,
+    Authorization: key(),
   };
 }
 
 function isRemoteUrl(value) {
   return /^https?:\/\//i.test(String(value || ""));
+}
+
+function postizUrl(pathname) {
+  return `${base()}${pathname}`;
+}
+
+function channelType(channel) {
+  return channel?.identifier || channel?.provider || channel?.type || channel?.social || channel?.platform || "instagram";
+}
+
+function findChannel(integrationId) {
+  return (_channels || []).find((channel) => {
+    const ids = [channel?.id, channel?._id, channel?.integrationId].filter(Boolean).map(String);
+    return ids.includes(String(integrationId));
+  });
+}
+
+async function readError(res) {
+  const text = await res.text();
+  return text.slice(0, 1200);
 }
 
 let _channels = null;
@@ -28,11 +58,8 @@ let _channelsFetched = 0;
 export async function getChannels() {
   if (_channels && Date.now() - _channelsFetched < 10 * 60 * 1000) return _channels;
   if (!key()) throw new Error("POSTIZ_API_KEY not set");
-  const res = await fetch(`${base()}/api/v1/integrations`, { headers: headers() });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Postiz GET /integrations ${res.status}: ${text}`);
-  }
+  const res = await fetch(postizUrl("/integrations"), { headers: headers() });
+  if (!res.ok) throw new Error(`Postiz GET /integrations ${res.status}: ${await readError(res)}`);
   const data = await res.json();
   _channels = Array.isArray(data) ? data : data.integrations ?? data.channels ?? [];
   _channelsFetched = Date.now();
@@ -43,10 +70,10 @@ export async function getChannels() {
 export async function getRecentPosts(limit = 15) {
   try {
     if (!key()) return [];
-    const res = await fetch(`${base()}/api/v1/posts?limit=${limit}&display=list`, { headers: headers() });
+    const res = await fetch(postizUrl(`/posts?limit=${limit}`), { headers: headers() });
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : data.posts ?? [];
+    return Array.isArray(data) ? data : data.posts ?? data.items ?? [];
   } catch {
     return [];
   }
@@ -55,7 +82,16 @@ export async function getRecentPosts(limit = 15) {
 export async function uploadMedia(filePath) {
   if (!key()) throw new Error("POSTIZ_API_KEY not set");
   if (!filePath) throw new Error("Postiz upload requires a media path");
-  if (isRemoteUrl(filePath)) return { url: filePath };
+
+  if (isRemoteUrl(filePath)) {
+    const res = await fetch(postizUrl("/upload-from-url"), {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({ url: filePath }),
+    });
+    if (!res.ok) throw new Error(`Postiz upload-from-url ${res.status}: ${await readError(res)}`);
+    return res.json();
+  }
 
   await assertRenderableVideo(filePath, { minDuration: 8, requireAudio: true, requireVertical: true });
 
@@ -72,17 +108,16 @@ export async function uploadMedia(filePath) {
   const sizeMb = (fileBuffer.length / 1024 / 1024).toFixed(1);
   console.log(`[Postiz] Uploading ${fileName} (${sizeMb} MB)...`);
 
-  const res = await fetch(`${base()}/api/v1/upload`, {
+  const res = await fetch(postizUrl("/upload"), {
     method: "POST",
-    headers: { Authorization: `Bearer ${key()}` },
+    headers: { Authorization: key() },
     body: formData,
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`Postiz upload ${res.status}: ${text}`);
+  if (!res.ok) throw new Error(`Postiz upload ${res.status}: ${await readError(res)}`);
 
-  const media = JSON.parse(text);
+  const media = await res.json();
   const url = media.path || media.url;
-  if (!url) throw new Error("Postiz upload response did not include a media URL/path");
+  if (!media.id || !url) throw new Error("Postiz upload response did not include media id and path/url");
 
   console.log(`[Postiz] Upload done. Path: ${url}`);
   return media;
@@ -96,27 +131,37 @@ export async function schedulePost({ integrationId, content, date, mediaPath, me
   const mediaSource = mediaUrl || mediaPath;
   if (requireMedia && !mediaSource) throw new Error("RenderGuard: refusing to schedule without video media");
 
-  let imageArray = [];
+  let mediaArray = [];
   if (mediaSource) {
     const media = await uploadMedia(mediaSource);
     const url = media.path || media.url;
-    if (!url) throw new Error("Postiz media step produced no URL");
-    imageArray = [{ url }];
+    if (!media.id || !url) throw new Error("Postiz media step produced no usable media id/path");
+    mediaArray = [{ id: media.id, path: url }];
     console.log(`[Postiz] Media URL: ${url}`);
   }
 
-  if (requireMedia && !imageArray.length) {
-    throw new Error("RenderGuard: refusing to schedule because media upload produced no video URL");
+  if (requireMedia && !mediaArray.length) {
+    throw new Error("RenderGuard: refusing to schedule because media upload produced no video asset");
   }
 
-  const contentItem = { id: integrationId, content, ...(imageArray.length ? { image: imageArray } : {}) };
-  const body = { type: "schedule", date, content: [contentItem] };
-  const res = await fetch(`${base()}/api/v1/posts`, {
+  const channel = findChannel(integrationId);
+  const body = {
+    type: "schedule",
+    date,
+    shortLink: false,
+    tags: [],
+    posts: [{
+      integration: { id: integrationId },
+      value: [{ content, image: mediaArray }],
+      settings: { __type: channelType(channel) },
+    }],
+  };
+
+  const res = await fetch(postizUrl("/posts"), {
     method: "POST",
     headers: headers(),
     body: JSON.stringify(body),
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`Postiz POST /posts ${res.status}: ${text}`);
-  try { return JSON.parse(text); } catch { return { raw: text }; }
+  if (!res.ok) throw new Error(`Postiz POST /posts ${res.status}: ${await readError(res)}`);
+  try { return await res.json(); } catch { return { ok: true }; }
 }
