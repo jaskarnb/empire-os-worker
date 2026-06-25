@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { getChannels, getRecentPosts } from "../tools/postiz.js";
-import { makeIncident, readRecentIncidents, recordIncident } from "../tools/opsIncidents.js";
+import { makeIncident, readRecentIncidents, recordIncident, saveLastOpsReport } from "../tools/opsIncidents.js";
 
 const WORKER_HEALTH_URL = process.env.WORKER_HEALTH_URL || process.env.PUBLIC_WORKER_URL || "https://empire-os-worker-production.up.railway.app/health";
 const GITHUB_REPO = process.env.GITHUB_REPO || "jaskarnb/empire-os-worker";
@@ -219,11 +219,11 @@ export async function runOpsWatchers() {
     await checkGitHub(),
   ];
 
-  return {
+  return saveLastOpsReport({
     status: overallStatus(checks),
     startedAt,
     finishedAt: new Date().toISOString(),
     checks,
     recentIncidents: readRecentIncidents(20),
-  };
+  });
 }
