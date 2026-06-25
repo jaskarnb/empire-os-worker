@@ -11,6 +11,10 @@ function ok(agent, details = {}) {
   return { agent, status: "ok", severity: "P3", details };
 }
 
+function notice(agent, details = {}) {
+  return { agent, status: "notice", severity: "P3", details };
+}
+
 function fail({ agent, severity = "P2", service, problem, evidence = [], recommendedOwner = "Codex", recommendedAction }) {
   const incident = recordIncident(makeIncident({
     agent,
@@ -99,16 +103,15 @@ async function checkGitHub() {
       });
     }
     if (data.draft) {
-      return fail({
-        agent,
-        severity: "P3",
-        service: "github",
-        problem: `Watched PR #${WATCH_PR_NUMBER} is still draft`,
-        evidence: [data.html_url, `mergeable_state=${data.mergeable_state || "unknown"}`],
-        recommendedAction: "Keep testing before merging to Railway main branch",
+      return notice(agent, {
+        repo: GITHUB_REPO,
+        watchedPr: Number(WATCH_PR_NUMBER),
+        state: data.state,
+        draft: true,
+        url: data.html_url,
       });
     }
-    return ok(agent, { repo: GITHUB_REPO, watchedPr: Number(WATCH_PR_NUMBER), state: data.state });
+    return ok(agent, { repo: GITHUB_REPO, watchedPr: Number(WATCH_PR_NUMBER), state: data.state, draft: false });
   } catch (error) {
     return fail({
       agent,
@@ -201,6 +204,7 @@ function checkCosts() {
 function overallStatus(results) {
   if (results.some((item) => item.severity === "P0" && item.status === "incident")) return "p0";
   if (results.some((item) => item.status === "incident")) return "attention";
+  if (results.some((item) => item.status === "notice")) return "notice";
   return "ok";
 }
 
