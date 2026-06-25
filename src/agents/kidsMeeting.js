@@ -1,6 +1,7 @@
 import fs from "fs";
 import Anthropic from "@anthropic-ai/sdk";
 import { getChannels, getRecentPosts, schedulePost } from "../tools/postiz.js";
+import { assertPolicySafePost } from "../tools/policyGuard.js";
 import { generateVideo } from "../tools/videoGen.js";
 
 const client = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -290,6 +291,7 @@ export async function runKidsMeeting() {
       let videoPath = null;
 
       try {
+        assertPolicySafePost({ post, channelName: name, audience: "kids", niche: config.niche });
         videoPath = await generateVideo({
           script: post.script || post.caption,
           hook: post.hook,
