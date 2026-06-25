@@ -88,12 +88,11 @@ export function renderOpsDashboard({ incidents = [] } = {}) {
     const incidentCountEl = document.getElementById("incidentCount");
     const rowsEl = document.getElementById("incidentRows");
     function esc(value) {
-      return String(value ?? "").replace(/[&<>"']/g, (char) => {
+      return String(value ?? "").replace(/[&<>']/g, (char) => {
         switch (char) {
           case "&": return "&amp;";
           case "<": return "&lt;";
           case ">": return "&gt;";
-          case "\\\"": return "&quot;";
           case "'": return "&#039;";
           default: return char;
         }
