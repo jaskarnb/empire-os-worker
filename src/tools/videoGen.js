@@ -3,6 +3,7 @@ import { promisify } from "util";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { generateAgentMediaVideo, shouldUseAgentMedia } from "./agentMedia.js";
 import { assertRenderableVideo } from "./renderGuard.js";
 
 const execFileAsync = promisify(execFile);
@@ -121,6 +122,19 @@ async function encodeVideo({ framePaths, audioPath, videoPath, duration }) {
 }
 
 export async function generateVideo({ script, hook, niche = "", style = "dark", voice }) {
+  const safeScript = cleanText(script || hook, 1200);
+  if (!safeScript) throw new Error("No script text supplied");
+
+  if (shouldUseAgentMedia({ niche, style })) {
+    try {
+      return await generateAgentMediaVideo({ script: safeScript, hook, niche, style });
+    } catch (error) {
+      console.error(`[AgentMedia] Failed: ${error.message}`);
+      if (process.env.AGENT_MEDIA_REQUIRED === "true") throw error;
+      console.warn("[AgentMedia] Falling back to local renderer.");
+    }
+  }
+
   const videoDir = process.env.VIDEO_DIR || "./output/video";
   const audioDir = process.env.AUDIO_DIR || "./output/audio";
 
@@ -134,9 +148,6 @@ export async function generateVideo({ script, hook, niche = "", style = "dark", 
   const framePaths = [];
 
   try {
-    const safeScript = cleanText(script || hook, 1200);
-    if (!safeScript) throw new Error("No script text supplied");
-
     await renderAudio({ audioPath, script: safeScript, style, voice });
     const duration = await audioDuration(audioPath);
     console.log(`[VideoGen] Duration: ${duration}s`);
