@@ -1,12 +1,14 @@
 import { makeIncident, recordIncident } from "./opsIncidents.js";
 
+const SECRET_TOKEN_PATTERN = /\b(sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|(?:password|private key|seed phrase)\s*[:=])\b/i;
+
 const RISK_PATTERNS = [
   { pattern: /\b(kill yourself|kys|suicide instructions|self[- ]harm)\b/i, reason: "self-harm phrase" },
   { pattern: /\b(nude|porn|sexually explicit|onlyfans|nsfw)\b/i, reason: "sexual content" },
   { pattern: /\b(hate crime|racial slur|terrorist manifesto)\b/i, reason: "hate or extremist content" },
   { pattern: /\b(guaranteed profit|risk[- ]free money|100% return|can't lose)\b/i, reason: "misleading financial claim" },
   { pattern: /\b(medical cure|cures cancer|stop taking medication)\b/i, reason: "unsafe medical claim" },
-  { pattern: /\b(password|api key|private key|seed phrase)\b/i, reason: "secret or credential reference" },
+  { pattern: SECRET_TOKEN_PATTERN, reason: "secret or credential leak" },
 ];
 
 const KIDS_BLOCK_PATTERNS = [
