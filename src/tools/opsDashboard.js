@@ -87,7 +87,18 @@ export function renderOpsDashboard({ incidents = [] } = {}) {
     const updatedEl = document.getElementById("updated");
     const incidentCountEl = document.getElementById("incidentCount");
     const rowsEl = document.getElementById("incidentRows");
-    function esc(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\\\"":"&quot;","'":"&#039;"}[c] || c)); }
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => {
+        switch (char) {
+          case "&": return "&amp;";
+          case "<": return "&lt;";
+          case ">": return "&gt;";
+          case "\\\"": return "&quot;";
+          case "'": return "&#039;";
+          default: return char;
+        }
+      });
+    }
     function drawIncidents(incidents) {
       incidentCountEl.textContent = incidents.length;
       rowsEl.innerHTML = incidents.length ? incidents.map(item => '<tr><td><span class="badge '+esc(item.severity)+'">'+esc(item.severity)+'</span></td><td>'+esc(item.agent)+'</td><td>'+esc(item.service)+'</td><td>'+esc(item.problem)+'</td><td>'+esc(item.ts)+'</td></tr>').join('') : '<tr><td colspan="5" class="muted">No incidents recorded yet.</td></tr>';
