@@ -3,26 +3,51 @@ import { startCronJobs } from "./cron.js";
 import { runDailyMeeting } from "./agents/dailyMeeting.js";
 import { runBrainRotMeeting } from "./agents/brainRotMeeting.js";
 import { runKidsMeeting } from "./agents/kidsMeeting.js";
+import { readRecentIncidents } from "./tools/opsIncidents.js";
+import { runOpsWatchers } from "./watchers/opsWatchers.js";
 
 const PORT = process.env.PORT || 3001;
 
-// ── HTTP server: /health + /standup ──────────────────────────────────────────
+function sendJson(res, statusCode, body) {
+  res.writeHead(statusCode, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(body));
+}
+
+// HTTP server: /health, /standup, /ops/status, /ops/check
 const server = http.createServer(async (req, res) => {
-  if (req.method === "GET" && req.url === "/health") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ status: "ok", ts: new Date().toISOString() }));
+  const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+
+  if (req.method === "GET" && url.pathname === "/health") {
+    sendJson(res, 200, { status: "ok", ts: new Date().toISOString() });
     return;
   }
 
-  if (req.method === "POST" && req.url === "/standup") {
-    res.writeHead(202, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ status: "running", ts: new Date().toISOString() }));
-    // Fire all 3 meetings async after response
+  if (req.method === "GET" && url.pathname === "/ops/status") {
+    sendJson(res, 200, {
+      status: "ok",
+      ts: new Date().toISOString(),
+      recentIncidents: readRecentIncidents(25),
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/ops/check") {
+    try {
+      const report = await runOpsWatchers();
+      sendJson(res, report.status === "p0" ? 503 : 200, report);
+    } catch (error) {
+      sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/standup") {
+    sendJson(res, 202, { status: "running", ts: new Date().toISOString() });
     (async () => {
       console.log("[Standup] Manual trigger received");
-      try { await runDailyMeeting();    } catch (e) { console.error("[Standup] dailyMeeting:", e.message); }
+      try { await runDailyMeeting(); } catch (e) { console.error("[Standup] dailyMeeting:", e.message); }
       try { await runBrainRotMeeting(); } catch (e) { console.error("[Standup] brainRotMeeting:", e.message); }
-      try { await runKidsMeeting();     } catch (e) { console.error("[Standup] kidsMeeting:", e.message); }
+      try { await runKidsMeeting(); } catch (e) { console.error("[Standup] kidsMeeting:", e.message); }
       console.log("[Standup] Complete");
     })();
     return;
@@ -33,9 +58,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[Empire OS] Worker online — port ${PORT}`);
+  console.log(`[Empire OS] Worker online - port ${PORT}`);
 });
 
-// ── Cron ─────────────────────────────────────────────────────────────────────
 startCronJobs();
 console.log("[Empire OS] Cron scheduled.");
