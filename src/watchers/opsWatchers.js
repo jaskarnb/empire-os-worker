@@ -28,6 +28,28 @@ function fail({ agent, severity = "P2", service, problem, evidence = [], recomme
   return { agent, status: "incident", severity, incident };
 }
 
+function summarizeChannel(channel) {
+  return {
+    id: channel?.id || channel?._id || channel?.integrationId || null,
+    name: channel?.name || channel?.username || channel?.identifier || channel?.provider || "unknown",
+    provider: channel?.provider || channel?.type || channel?.social || channel?.platform || "unknown",
+  };
+}
+
+function channelLooksDisconnected(channel) {
+  const text = JSON.stringify(channel || {}).toLowerCase();
+  return /\b(disconnected|expired|revoked|reauth|unauthorized|invalid token|token expired|failed)\b/.test(text);
+}
+
+function getPostMetric(post, names) {
+  for (const name of names) {
+    const value = post?.[name] ?? post?.analytics?.[name] ?? post?.stats?.[name] ?? post?.metrics?.[name];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
+  }
+  return null;
+}
+
 async function checkRailwayHealth() {
   const agent = "Railway Watcher";
   try {
@@ -80,6 +102,93 @@ async function checkPostiz() {
       problem: "Postiz API check failed",
       evidence: [error.message],
       recommendedAction: "Verify POSTIZ_API_KEY, POSTIZ_API_URL, and connected social accounts",
+    });
+  }
+}
+
+async function checkSocialAccounts() {
+  const agent = "Social Account Watcher";
+  try {
+    const channels = await getChannels();
+    if (!channels.length) return notice(agent, { channels: 0, note: "No social accounts connected yet" });
+
+    const disconnected = channels.filter(channelLooksDisconnected).map(summarizeChannel);
+    if (disconnected.length) {
+      return fail({
+        agent,
+        severity: "P1",
+        service: "social-accounts",
+        problem: "One or more connected social accounts may need reauthorization",
+        evidence: disconnected.slice(0, 5).map((channel) => JSON.stringify(channel)),
+        recommendedAction: "Open Postiz integrations and reconnect any expired TikTok, YouTube, or Instagram accounts",
+      });
+    }
+
+    const providers = [...new Set(channels.map((channel) => summarizeChannel(channel).provider))].filter(Boolean);
+    return ok(agent, { channels: channels.length, providers });
+  } catch (error) {
+    return fail({
+      agent,
+      severity: "P1",
+      service: "social-accounts",
+      problem: "Social account health could not be checked",
+      evidence: [error.message],
+      recommendedAction: "Verify Postiz integration access and inspect connected account status manually",
+    });
+  }
+}
+
+async function checkAnalytics() {
+  const agent = "Analytics Watcher";
+  try {
+    const posts = await getRecentPosts(25);
+    if (!posts.length) {
+      return notice(agent, { posts: 0, note: "No recent posts available for analytics yet" });
+    }
+
+    const scored = posts.map((post) => {
+      const views = getPostMetric(post, ["views", "viewCount", "plays", "impressions"]);
+      const likes = getPostMetric(post, ["likes", "likeCount"]);
+      const comments = getPostMetric(post, ["comments", "commentCount"]);
+      const shares = getPostMetric(post, ["shares", "shareCount"]);
+      const score = [views, likes, comments, shares]
+        .filter((value) => value !== null)
+        .reduce((sum, value) => sum + value, 0);
+      return {
+        title: String(post?.title || post?.content || post?.caption || post?.id || "untitled").slice(0, 90),
+        metricsFound: [views, likes, comments, shares].filter((value) => value !== null).length,
+        views,
+        likes,
+        comments,
+        shares,
+        score,
+      };
+    });
+
+    const measurable = scored.filter((post) => post.metricsFound > 0);
+    if (!measurable.length) {
+      return notice(agent, {
+        posts: posts.length,
+        measurable: 0,
+        note: "Recent posts are visible, but Postiz did not return analytics fields yet",
+      });
+    }
+
+    measurable.sort((a, b) => b.score - a.score);
+    return ok(agent, {
+      posts: posts.length,
+      measurable: measurable.length,
+      topPosts: measurable.slice(0, 3),
+      lowSignalPosts: measurable.filter((post) => post.score === 0).length,
+    });
+  } catch (error) {
+    return fail({
+      agent,
+      severity: "P2",
+      service: "analytics",
+      problem: "Recent post analytics could not be checked",
+      evidence: [error.message],
+      recommendedAction: "Confirm analytics data is available through Postiz or add native platform analytics connectors",
     });
   }
 }
@@ -216,6 +325,8 @@ export async function runOpsWatchers() {
     checkCosts(),
     await checkRailwayHealth(),
     await checkPostiz(),
+    await checkSocialAccounts(),
+    await checkAnalytics(),
     await checkGitHub(),
   ];
 
