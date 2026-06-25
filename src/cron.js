@@ -45,6 +45,12 @@ function startStandupCron() {
   cron.schedule(`0 ${hour} * * *`, runAllMeetings);
 }
 
+function opsCronExpression(minutes) {
+  if (minutes >= 60) return "0 * * * *";
+  const safeMinutes = Math.min(Math.max(Math.floor(minutes), 15), 59);
+  return `*/${safeMinutes} * * * *`;
+}
+
 function startOpsWatcherCron() {
   if (process.env.OPS_WATCHERS_ENABLED !== "true") {
     console.log("[Cron] OPS_WATCHERS_ENABLED not set - skipping ops watcher schedule.");
@@ -52,10 +58,10 @@ function startOpsWatcherCron() {
   }
 
   const minutes = Number(process.env.OPS_WATCHERS_INTERVAL_MINUTES || 60);
-  const safeMinutes = Number.isFinite(minutes) && minutes >= 15 ? Math.floor(minutes) : 60;
-  console.log(`[Cron] Scheduling Ops Watchers every ${safeMinutes} minute(s).`);
+  const expression = opsCronExpression(Number.isFinite(minutes) ? minutes : 60);
+  console.log(`[Cron] Scheduling Ops Watchers with cron: ${expression}`);
 
-  cron.schedule(`*/${safeMinutes} * * * *`, async () => {
+  cron.schedule(expression, async () => {
     try {
       const report = await runOpsWatchers();
       console.log(`[Ops] Watchers complete: ${report.status}`);
