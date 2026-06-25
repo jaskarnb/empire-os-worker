@@ -1,0 +1,33 @@
+name: Worker Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - codex/renderguard-video-pipeline
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check src/index.js
+          node --check src/cron.js
+          node --check src/tools/renderGuard.js
+          node --check src/tools/videoGen.js
+          node --check src/tools/postiz.js
+          node --check src/agents/dailyMeeting.js
+          node --check src/agents/brainRotMeeting.js
+          node --check src/agents/kidsMeeting.js
