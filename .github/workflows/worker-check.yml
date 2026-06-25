@@ -30,6 +30,7 @@ jobs:
           node --check src/tools/postiz.js
           node --check src/tools/agentMedia.js
           node --check src/tools/opsIncidents.js
+          node --check src/tools/opsDashboard.js
           node --check src/watchers/opsWatchers.js
           node --check src/agents/dailyMeeting.js
           node --check src/agents/brainRotMeeting.js
