@@ -28,6 +28,9 @@ jobs:
           node --check src/tools/renderGuard.js
           node --check src/tools/videoGen.js
           node --check src/tools/postiz.js
+          node --check src/tools/agentMedia.js
+          node --check src/tools/opsIncidents.js
+          node --check src/watchers/opsWatchers.js
           node --check src/agents/dailyMeeting.js
           node --check src/agents/brainRotMeeting.js
           node --check src/agents/kidsMeeting.js
