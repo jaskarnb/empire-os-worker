@@ -3,6 +3,7 @@ import path from "path";
 
 const INCIDENT_DIR = process.env.INCIDENT_DIR || "./output/incidents";
 const INCIDENT_FILE = path.resolve(INCIDENT_DIR, "ops-incidents.jsonl");
+const REPORT_FILE = path.resolve(INCIDENT_DIR, "ops-last-report.json");
 
 function ensureDir() {
   fs.mkdirSync(INCIDENT_DIR, { recursive: true });
@@ -27,6 +28,25 @@ export function recordIncident(incident) {
   fs.appendFileSync(INCIDENT_FILE, `${JSON.stringify(incident)}\n`);
   console.error(`[Ops:${incident.severity}] ${incident.agent} - ${incident.problem}`);
   return incident;
+}
+
+export function saveLastOpsReport(report) {
+  ensureDir();
+  fs.writeFileSync(REPORT_FILE, JSON.stringify(report, null, 2));
+  return report;
+}
+
+export function readLastOpsReport() {
+  try {
+    if (!fs.existsSync(REPORT_FILE)) return null;
+    return JSON.parse(fs.readFileSync(REPORT_FILE, "utf8"));
+  } catch (error) {
+    return {
+      status: "error",
+      error: `Could not read last Ops report: ${error.message}`,
+      ts: new Date().toISOString(),
+    };
+  }
 }
 
 export function readRecentIncidents(limit = 50) {
