@@ -4,7 +4,7 @@ import { runDailyMeeting } from "./agents/dailyMeeting.js";
 import { runBrainRotMeeting } from "./agents/brainRotMeeting.js";
 import { runKidsMeeting } from "./agents/kidsMeeting.js";
 import { renderOpsDashboard } from "./tools/opsDashboard.js";
-import { readRecentIncidents } from "./tools/opsIncidents.js";
+import { readLastOpsReport, readRecentIncidents } from "./tools/opsIncidents.js";
 import { runOpsWatchers } from "./watchers/opsWatchers.js";
 
 const PORT = process.env.PORT || 3001;
@@ -29,7 +29,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && url.pathname === "/ops/dashboard") {
-    sendHtml(res, 200, renderOpsDashboard({ incidents: readRecentIncidents(25) }));
+    sendHtml(res, 200, renderOpsDashboard({ incidents: readRecentIncidents(25), lastReport: readLastOpsReport() }));
     return;
   }
 
@@ -37,6 +37,7 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, 200, {
       status: "ok",
       ts: new Date().toISOString(),
+      lastReport: readLastOpsReport(),
       recentIncidents: readRecentIncidents(25),
     });
     return;
