@@ -1,26 +1,6 @@
 /**
- * Daily Meeting — Empire OS
- * 7 AM UTC every day:
- *   1. Fetch Postiz channels + recent analytics
- *   2. Scout scans trending topics (web search)
- *   3. Muse generates post ideas + voiceover scripts + affiliate CTAs
- *   4. VideoGen renders 1080x1920 MP4 (edge-tts + ffmpeg)
- *   5. Nova uploads video + schedules post to Postiz
- *
- * AFFILIATE ROTATION (every other post):
- *   vault  -> Webull ($12-36/referral)
- *   alibi  -> NordVPN ($40-100/sale)
- *   tech   -> Hostinger (~$60/sale, 60% commission)
- *   lift   -> WHOOP ($30/referral)
- *   hub    -> Hostinger (~$60/sale)
- *
- * POST SCHEDULE (optimised for US peak engagement, times in UTC):
- *   vault  3x/day: 11:00, 17:00, 00:00  (7am, 1pm, 8pm EST)
- *   alibi  3x/day: 00:00, 02:00, 22:00  (8pm, 10pm, 6pm EST — night audience)
- *   tech   3x/day: 12:00, 16:00, 23:00  (8am, 12pm, 7pm EST)
- *   lift   2x/day: 11:00, 17:00         (7am, 1pm EST)
- *   hub    2x/day: 13:00, 22:00         (9am, 6pm EST)
- *   TOTAL: 13 videos/day = 390/month
+ * Daily Meeting - Empire OS
+ * Adult channels: finance, crime, tech, fitness, and AI.
  */
 import fs from "fs";
 import Anthropic from "@anthropic-ai/sdk";
@@ -69,7 +49,12 @@ const CHANNEL_CONFIG = [
 
 function getChannelConfig(name = "") {
   const lower = name.toLowerCase();
-  return CHANNEL_CONFIG.find((c) => lower.includes(c.match)) || { niche: "viral short-form content", postsPerDay: 1, times: ["12:00"], affiliate: null };
+  return CHANNEL_CONFIG.find((c) => lower.includes(c.match)) || {
+    niche: "viral short-form content",
+    postsPerDay: 1,
+    times: ["12:00"],
+    affiliate: null,
+  };
 }
 
 async function scoutTrends(niche) {
@@ -100,7 +85,7 @@ async function generatePosts(channelName, niche, postsPerDay, trends, perfSummar
 
   const affiliateBlock = affiliate && postIndex % 2 === 0
     ? `MONETIZATION - include naturally in this post:\n- Partner: ${affiliate.name}\n- Offer: ${affiliate.offer}\n- End caption with: "${affiliate.cta}"\n- Tie the CTA to the video topic so it feels organic.`
-    : `MONETIZATION: Skip affiliate CTA this post - pure value builds trust.`;
+    : "MONETIZATION: Skip affiliate CTA this post - pure value builds trust.";
 
   const prompt = `You are the content strategist for "${channelName}", a ${niche} channel on TikTok/YouTube Shorts.
 
@@ -131,9 +116,16 @@ Return ONLY valid JSON - no markdown, no explanation:
 
   const raw = resp.content[0].text;
   const match = raw.match(/\[[\s\S]*\]/);
-  if (!match) { console.error(`[Muse] No JSON for ${channelName}`); return []; }
-  try { return JSON.parse(match[0]).slice(0, postsPerDay); }
-  catch (e) { console.error(`[Muse] Parse error: ${e.message}`); return []; }
+  if (!match) {
+    console.error(`[Muse] No JSON for ${channelName}`);
+    return [];
+  }
+  try {
+    return JSON.parse(match[0]).slice(0, postsPerDay);
+  } catch (e) {
+    console.error(`[Muse] Parse error: ${e.message}`);
+    return [];
+  }
 }
 
 function buildScheduleTimes(times) {
@@ -146,10 +138,15 @@ function buildScheduleTimes(times) {
   });
 }
 
+function cleanup(filePath) {
+  if (!filePath) return;
+  try { fs.unlinkSync(filePath); } catch {}
+}
+
 export async function runDailyMeeting() {
   const stamp = new Date().toISOString();
   console.log("\n" + "=".repeat(50));
-  console.log(`[Empire OS] Daily Meeting  ${stamp}`);
+  console.log(`[Empire OS] Daily Meeting ${stamp}`);
   console.log("=".repeat(50));
 
   let channels;
@@ -194,31 +191,29 @@ export async function runDailyMeeting() {
     const posts = await generatePosts(name, config.niche, config.postsPerDay, trends, perfSummary, config.affiliate || null, postCounters[name]);
     postCounters[name] += posts.length;
 
-    if (!posts.length) { console.error("[Muse] No posts generated - skipping"); continue; }
+    if (!posts.length) {
+      console.error("[Muse] No posts generated - skipping");
+      continue;
+    }
 
     const times = buildScheduleTimes(config.times);
 
     for (let i = 0; i < posts.length; i++) {
       const post = posts[i];
       const date = times[i] || times[0];
+      let videoPath = null;
       console.log(`\n[Smith] "${post.title}"`);
 
-      let videoPath = null;
       try {
-        videoPath = await generateVideo({ script: post.script || post.caption, hook: post.hook, niche: config.niche });
+        videoPath = await generateVideo({ script: post.script || post.caption, hook: post.hook, niche: config.niche, style: "dark" });
+        console.log(`[Nova] Scheduling video at ${date}...`);
+        await schedulePost({ integrationId: ch.id, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
+        console.log("[Nova] Scheduled with video");
       } catch (e) {
-        console.error(`[Smith] Video failed: ${e.message} - falling back to text post`);
+        console.error(`[RenderGuard] Skipped post because video pipeline failed: ${e.message}`);
+      } finally {
+        cleanup(videoPath);
       }
-
-      console.log(`[Nova] Scheduling at ${date}...`);
-      try {
-        await schedulePost({ integrationId: ch.id, content: post.caption, date, mediaPath: videoPath || undefined });
-        console.log(`[Nova] Scheduled${videoPath ? " with video" : " (text only)"}`);
-      } catch (e) {
-        console.error("[Nova] Failed:", e.message);
-      }
-
-      if (videoPath) { try { fs.unlinkSync(videoPath); } catch {} }
     }
   }
 
