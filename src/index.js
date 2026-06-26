@@ -1,4 +1,5 @@
 import http from "http";
+import Anthropic from "@anthropic-ai/sdk";
 import { startCronJobs } from "./cron.js";
 import { runDailyMeeting } from "./agents/dailyMeeting.js";
 import { runBrainRotMeeting } from "./agents/brainRotMeeting.js";
@@ -6,6 +7,7 @@ import { runKidsMeeting } from "./agents/kidsMeeting.js";
 import { verifyAutomationReady, verifyMediaSource, verifyTaskCompletion } from "./agents/verifier.js";
 import { generateVideo } from "./tools/videoGen.js";
 import { getChannels, schedulePost } from "./tools/postiz.js";
+import { assertPolicySafePost } from "./tools/policyGuard.js";
 import { renderOpsDashboard } from "./tools/opsDashboard.js";
 import { readLastOpsReport, readRecentIncidents } from "./tools/opsIncidents.js";
 import { runOpsWatchers } from "./watchers/opsWatchers.js";
@@ -13,6 +15,7 @@ import fs from "fs";
 import path from "path";
 
 const PORT = process.env.PORT || 3001;
+const anthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 function sendJson(res, statusCode, body) {
   res.writeHead(statusCode, { "Content-Type": "application/json" });
@@ -36,6 +39,31 @@ function latestVideoPath() {
     .sort((a, b) => b.mtime - a.mtime);
   if (!videos.length) throw new Error(`No MP4 videos found in ${videoDir}`);
   return videos[0].filePath;
+}
+
+async function generateE2ePost({ channelName, niche }) {
+  const prompt = `Create one original short-form social video concept for "${channelName}".
+
+NICHE: ${niche}
+GOAL: high-retention, useful, entertaining, safe for general audiences.
+
+Return ONLY valid JSON:
+{
+  "title": "Internal title, 3-6 words",
+  "hook": "Exact first 5-8 spoken words",
+  "script": "A 90-130 word voiceover script. Conversational. No stage directions.",
+  "caption": "Caption with a strong first sentence, 2 short lines of value, and 5 hashtags."
+}`;
+
+  const resp = await anthropic().messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 900,
+    messages: [{ role: "user", content: prompt }],
+  });
+  const raw = resp.content?.find((part) => part.type === "text")?.text || "";
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("Claude did not return JSON for e2e post");
+  return JSON.parse(match[0]);
 }
 
 async function readJsonBody(req) {
@@ -138,6 +166,38 @@ const server = http.createServer(async (req, res) => {
         content: payload.content || "Ops test: verified Empire OS video pipeline and Postiz scheduling. This is a scheduled test post.",
       });
       sendJson(res, 200, { status: "pass", integrationId, scheduledFor: scheduleAt, videoPath, verification, postiz: result });
+    } catch (error) {
+      sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/ops/e2e-test") {
+    try {
+      const payload = await readJsonBody(req);
+      const channels = await getChannels();
+      const channel = channels.find((item) => item?.id || item?._id || item?.integrationId);
+      if (!channel) throw new Error("No schedulable Postiz channel found");
+      const channelName = channel.name || channel.username || channel.identifier || "Empire OS Channel";
+      const integrationId = payload.integrationId || channel.id || channel._id || channel.integrationId;
+      const niche = payload.niche || "AI productivity tools and automation for beginners";
+      const post = await generateE2ePost({ channelName, niche });
+      assertPolicySafePost({ post, channelName, audience: "general", niche });
+      const videoPath = await generateVideo({ script: post.script || post.caption, hook: post.hook, niche, style: payload.style || "dark" });
+      const verification = await verifyMediaSource(videoPath);
+      if (verification.status === "fail") {
+        sendJson(res, 503, { status: "fail", step: "video-verification", post, videoPath, verification });
+        return;
+      }
+      const scheduleAt = payload.date || new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString();
+      const postiz = await schedulePost({
+        integrationId,
+        date: scheduleAt,
+        mediaPath: videoPath,
+        requireMedia: true,
+        content: post.caption || post.script,
+      });
+      sendJson(res, 200, { status: "pass", channelName, integrationId, niche, scheduledFor: scheduleAt, post, videoPath, verification, postiz });
     } catch (error) {
       sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
     }
