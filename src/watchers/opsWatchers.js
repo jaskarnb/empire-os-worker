@@ -2,8 +2,10 @@ import fs from "fs";
 import path from "path";
 import { getChannels, getRecentPosts } from "../tools/postiz.js";
 import { makeIncident, readRecentIncidents, recordIncident, saveLastOpsReport } from "../tools/opsIncidents.js";
+import { getScheduledPosts, getSpendState, recordAnalyticsSnapshot } from "../tools/opsState.js";
 
 const WORKER_HEALTH_URL = process.env.WORKER_HEALTH_URL || process.env.PUBLIC_WORKER_URL || "https://empire-os-worker-production.up.railway.app/health";
+const POSTIZ_WEB_URL = process.env.POSTIZ_WEB_URL || "";
 const GITHUB_REPO = process.env.GITHUB_REPO || "jaskarnb/empire-os-worker";
 const WATCH_PR_NUMBER = process.env.WATCH_PR_NUMBER || "1";
 
@@ -106,6 +108,34 @@ async function checkPostiz() {
   }
 }
 
+async function checkPostizWeb() {
+  const agent = "Postiz Web Watcher";
+  if (!POSTIZ_WEB_URL) return notice(agent, { note: "POSTIZ_WEB_URL not configured; API watcher is still active" });
+  try {
+    const res = await fetch(POSTIZ_WEB_URL, { method: "GET" });
+    if (!res.ok) {
+      return fail({
+        agent,
+        severity: res.status >= 500 ? "P1" : "P2",
+        service: "postiz-web",
+        problem: "Postiz web app is not healthy",
+        evidence: [`${POSTIZ_WEB_URL} returned ${res.status}`],
+        recommendedAction: "Inspect Postiz Railway logs; API may still work while web UI is down",
+      });
+    }
+    return ok(agent, { url: POSTIZ_WEB_URL, statusCode: res.status });
+  } catch (error) {
+    return fail({
+      agent,
+      severity: "P1",
+      service: "postiz-web",
+      problem: "Postiz web app could not be reached",
+      evidence: [error.message, POSTIZ_WEB_URL],
+      recommendedAction: "Inspect Postiz Railway service health and deployment logs",
+    });
+  }
+}
+
 async function checkSocialAccounts() {
   const agent = "Social Account Watcher";
   try {
@@ -175,6 +205,12 @@ async function checkAnalytics() {
     }
 
     measurable.sort((a, b) => b.score - a.score);
+    recordAnalyticsSnapshot({
+      posts: posts.length,
+      measurable: measurable.length,
+      topPosts: measurable.slice(0, 5),
+      lowSignalPosts: measurable.filter((post) => post.score === 0).length,
+    });
     return ok(agent, {
       posts: posts.length,
       measurable: measurable.length,
@@ -315,8 +351,9 @@ function checkRenderOutput() {
 
 function checkCosts() {
   const agent = "Cost Watcher";
-  const dailyBudget = Number(process.env.DAILY_SPEND_LIMIT_USD || 0);
-  const estimatedSpend = Number(process.env.ESTIMATED_DAILY_SPEND_USD || 0);
+  const spend = getSpendState();
+  const dailyBudget = spend.dailyBudget;
+  const estimatedSpend = spend.estimatedSpend;
   if (process.env.AGENT_MEDIA_ENABLED === "true" && dailyBudget <= 0) {
     return fail({
       agent,
@@ -337,7 +374,27 @@ function checkCosts() {
       recommendedAction: "Pause paid generation and review cost drivers before continuing",
     });
   }
-  return ok(agent, { estimatedSpend, dailyBudget, enforced: dailyBudget > 0 });
+  return ok(agent, { estimatedSpend, dailyBudget, renders: spend.renders, remaining: spend.remaining, enforced: dailyBudget > 0 });
+}
+
+function checkScheduledPosts() {
+  const agent = "Schedule Watcher";
+  const posts = getScheduledPosts(50);
+  if (!posts.length) return notice(agent, { scheduled: 0, note: "No locally recorded scheduled posts yet" });
+  const now = Date.now();
+  const upcoming = posts.filter((post) => Date.parse(post.scheduledFor || "") > now);
+  const recent = posts.filter((post) => now - Date.parse(post.ts || "") < 24 * 60 * 60 * 1000);
+  return ok(agent, {
+    scheduled: posts.length,
+    upcoming: upcoming.length,
+    recordedLast24h: recent.length,
+    latest: posts.slice(0, 3).map((post) => ({
+      title: post.title,
+      channelName: post.channelName,
+      scheduledFor: post.scheduledFor,
+      niche: post.niche,
+    })),
+  });
 }
 
 function overallStatus(results) {
@@ -356,8 +413,10 @@ export async function runOpsWatchers() {
     checkCosts(),
     await checkRailwayHealth(),
     await checkPostiz(),
+    await checkPostizWeb(),
     await checkSocialAccounts(),
     await checkAnalytics(),
+    checkScheduledPosts(),
     await checkGitHub(),
   ];
 
