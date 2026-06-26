@@ -27,6 +27,16 @@ function sendHtml(res, statusCode, body) {
   res.end(body);
 }
 
+function sendVideo(res, filePath) {
+  const stat = fs.statSync(filePath);
+  res.writeHead(200, {
+    "Content-Type": "video/mp4",
+    "Content-Length": stat.size,
+    "Cache-Control": "no-store",
+  });
+  fs.createReadStream(filePath).pipe(res);
+}
+
 function latestVideoPath() {
   const videoDir = path.resolve(process.env.VIDEO_DIR || "./output/video");
   if (!fs.existsSync(videoDir)) throw new Error(`No video directory found at ${videoDir}`);
@@ -93,6 +103,40 @@ const server = http.createServer(async (req, res) => {
       lastReport: readLastOpsReport(),
       recentIncidents: readRecentIncidents(25),
     });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/ops/latest-video") {
+    try {
+      sendVideo(res, latestVideoPath());
+    } catch (error) {
+      sendJson(res, 404, { status: "error", error: error.message, ts: new Date().toISOString() });
+    }
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/ops/latest-video-page") {
+    sendHtml(res, 200, `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Empire OS Latest Video</title>
+  <style>
+    :root { color-scheme: dark; background: #0d1117; color: #e6edf3; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0d1117; }
+    main { width: min(420px, 92vw); padding: 20px; }
+    h1 { font-size: 18px; margin: 0 0 14px; }
+    video { width: 100%; aspect-ratio: 9 / 16; background: #000; border: 1px solid #30363d; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Latest Empire OS Video</h1>
+    <video controls autoplay muted playsinline src="/ops/latest-video"></video>
+  </main>
+</body>
+</html>`);
     return;
   }
 
