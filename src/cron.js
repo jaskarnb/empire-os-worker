@@ -43,6 +43,10 @@ function startStandupCron() {
     console.log("[Cron] AUTO_STANDUP not set - skipping content schedule.");
     return;
   }
+  if (process.env.AGENT_MEDIA_ENABLED === "true" && Number(process.env.DAILY_SPEND_LIMIT_USD || 0) <= 0) {
+    console.log("[Cron] DAILY_SPEND_LIMIT_USD not set - refusing paid auto-posting schedule.");
+    return;
+  }
 
   const hour = process.env.STANDUP_HOUR || "7";
   console.log(`[Cron] Scheduling all 3 Empire meetings at ${hour}:00 UTC daily.`);
