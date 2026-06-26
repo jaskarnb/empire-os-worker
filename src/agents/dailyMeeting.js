@@ -7,6 +7,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getChannels, getRecentPosts, schedulePost } from "../tools/postiz.js";
 import { assertPolicySafePost } from "../tools/policyGuard.js";
 import { generateVideo } from "../tools/videoGen.js";
+import { assertContentQuality } from "./contentQuality.js";
+import { isAutomationPaused, recordScheduledPost } from "../tools/opsState.js";
 
 const client = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -150,6 +152,11 @@ export async function runDailyMeeting() {
   console.log(`[Empire OS] Daily Meeting ${stamp}`);
   console.log("=".repeat(50));
 
+  if (isAutomationPaused()) {
+    console.log("[Control] Automation is paused - skipping Daily Meeting.");
+    return;
+  }
+
   let channels;
   try {
     channels = await getChannels();
@@ -207,9 +214,11 @@ export async function runDailyMeeting() {
 
       try {
         assertPolicySafePost({ post, channelName: name, audience: "general", niche: config.niche });
+        assertContentQuality({ post, niche: config.niche, audience: "general" });
         videoPath = await generateVideo({ script: post.script || post.caption, hook: post.hook, niche: config.niche, style: "dark" });
         console.log(`[Nova] Scheduling video at ${date}...`);
-        await schedulePost({ integrationId: ch.id, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
+        const postiz = await schedulePost({ integrationId: ch.id, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
+        recordScheduledPost({ title: post.title, channelName: name, integrationId: ch.id, scheduledFor: date, postiz, videoPath, niche: config.niche });
         console.log("[Nova] Scheduled with video");
       } catch (e) {
         console.error(`[RenderGuard] Skipped post because video pipeline failed: ${e.message}`);
