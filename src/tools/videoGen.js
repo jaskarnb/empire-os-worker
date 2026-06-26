@@ -160,7 +160,11 @@ async function renderAudio({ audioPath, script, style, voice }) {
 
   const ttsVoice = voice || process.env.DEFAULT_TTS_VOICE || styleVoiceMap[style] || "en-US-AriaNeural";
   const args = ["--voice", ttsVoice];
-  if (styleRateMap[style]) args.push("--rate", styleRateMap[style]);
+  if (styleRateMap[style]) {
+    const rate = styleRateMap[style];
+    if (rate.startsWith("-")) args.push(`--rate=${rate}`);
+    else args.push("--rate", rate);
+  }
   args.push("--text", cleanText(script, 1200), "--write-media", audioPath);
 
   console.log(`[VideoGen] TTS voice=${ttsVoice} style=${style}${styleRateMap[style] ? ` rate=${styleRateMap[style]}` : ""}`);
