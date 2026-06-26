@@ -12,6 +12,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FPS = 30;
 const WIDTH = 1080;
 const HEIGHT = 1920;
+const HORROR_TERMS = ["horror", "scary", "creepy", "paranormal", "haunting", "true crime", "cold case", "murder", "mystery", "missing", "urban legend"];
+
+function resolveStyle({ niche = "", style = "auto" } = {}) {
+  const requested = String(style || "auto").toLowerCase().trim();
+  if (requested && requested !== "auto") return requested;
+  const lower = niche.toLowerCase();
+  if (HORROR_TERMS.some((term) => lower.includes(term))) return "horror";
+  if (["meme", "brainrot", "gen z", "skibidi", "ohio", "rizz", "npc"].some((term) => lower.includes(term))) return "brainrot";
+  if (["kids", "children", "toddler", "nursery", "roblox", "minecraft"].some((term) => lower.includes(term))) return "kids";
+  return "dark";
+}
 
 function cleanText(value, maxLength = 1200) {
   return String(value || "")
@@ -34,17 +45,17 @@ function splitScriptIntoScenes(script, hook) {
   let bucket = "";
   for (const sentence of sentences) {
     const next = bucket ? `${bucket} ${sentence}` : sentence;
-    if (next.length > 92 && bucket) {
+    if (next.length > 72 && bucket) {
       sceneTexts.push(bucket);
       bucket = sentence;
     } else {
       bucket = next;
     }
-    if (sceneTexts.length >= 6) break;
+    if (sceneTexts.length >= 8) break;
   }
-  if (bucket && sceneTexts.length < 7) sceneTexts.push(bucket);
+  if (bucket && sceneTexts.length < 9) sceneTexts.push(bucket);
 
-  return sceneTexts.slice(0, 7).map((text) => cleanText(text, 150));
+  return sceneTexts.slice(0, 9).map((text) => cleanText(text, 130));
 }
 
 function wordsOf(text) {
@@ -66,26 +77,33 @@ function assEscape(text) {
     .replace(/\n/g, "\\N");
 }
 
-function captionChunks(script) {
+function captionChunks(script, style = "dark") {
   const words = wordsOf(script);
   const chunks = [];
-  for (let i = 0; i < words.length; i += 8) {
-    chunks.push(words.slice(i, i + 8).join(" "));
+  const size = style === "horror" || style === "brainrot" ? 4 : 5;
+  for (let i = 0; i < words.length; i += size) {
+    chunks.push(words.slice(i, i + size).join(" "));
   }
   return chunks;
 }
 
-function writeSubtitleFile({ subtitlePath, script, duration }) {
-  const chunks = captionChunks(script);
+function writeSubtitleFile({ subtitlePath, script, duration, style }) {
+  const chunks = captionChunks(script, style);
   const totalWords = Math.max(1, wordsOf(script).length);
   let cursorWords = 0;
   const events = chunks.map((chunk) => {
     const wordCount = wordsOf(chunk).length;
     const start = (cursorWords / totalWords) * duration;
     cursorWords += wordCount;
-    const end = Math.min(duration, Math.max(start + 1.1, (cursorWords / totalWords) * duration));
+    const end = Math.min(duration, Math.max(start + 0.72, (cursorWords / totalWords) * duration));
     return `Dialogue: 0,${assTime(start)},${assTime(end)},Caption,,0,0,0,,${assEscape(chunk).toUpperCase()}`;
   });
+
+  const fontSize = style === "horror" ? 62 : style === "brainrot" ? 76 : 68;
+  const primary = style === "horror" ? "&H00F5F5EB" : style === "kids" ? "&H00FFFFFF" : "&H00FFFFFF";
+  const outline = style === "horror" ? "&H00000000" : "&H00101010";
+  const shadow = style === "horror" ? 0 : 2;
+  const marginV = style === "horror" ? 245 : 210;
 
   const ass = `[Script Info]
 ScriptType: v4.00+
@@ -95,7 +113,7 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,Arial,70,&H00FFFFFF,&H00FFFFFF,&H00101010,&H99000000,1,0,0,0,100,100,0,0,1,6,2,2,80,80,210,1
+Style: Caption,Arial,${fontSize},${primary},&H00FFFFFF,${outline},&H99000000,1,0,0,0,100,100,0,0,1,7,${shadow},2,80,80,${marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -107,7 +125,7 @@ ${events.join("\n")}
 function sceneDurations(sceneTexts, totalDuration) {
   const weights = sceneTexts.map((text) => Math.max(5, wordsOf(text).length));
   const totalWeight = weights.reduce((sum, value) => sum + value, 0) || 1;
-  return weights.map((weight) => Math.max(2.2, (weight / totalWeight) * totalDuration));
+  return weights.map((weight) => Math.max(1.6, (weight / totalWeight) * totalDuration));
 }
 
 async function audioDuration(audioPath) {
@@ -130,10 +148,12 @@ async function renderFrame({ frameScript, output, text, niche, style, sceneIndex
 async function renderAudio({ audioPath, script, style, voice }) {
   const styleVoiceMap = {
     dark: "en-US-AriaNeural",
+    horror: "en-US-GuyNeural",
     brainrot: "en-US-JennyNeural",
     kids: "en-US-AnaNeural",
   };
   const styleRateMap = {
+    horror: "-6%",
     brainrot: "+15%",
     kids: "-10%",
   };
@@ -151,7 +171,7 @@ function subtitleFilterPath(filePath) {
   return String(filePath).replace(/\\/g, "/").replace(/'/g, "\\'");
 }
 
-async function encodeVideo({ framePaths, audioPath, videoPath, duration, durations, subtitlePath }) {
+async function encodeVideo({ framePaths, audioPath, videoPath, duration, durations, subtitlePath, style }) {
   const args = ["-y"];
 
   for (let i = 0; i < framePaths.length; i++) {
@@ -164,15 +184,28 @@ async function encodeVideo({ framePaths, audioPath, videoPath, duration, duratio
   const filters = framePaths.map((_, index) => {
     const sceneDuration = durations[index] || Math.max(2.2, duration / framePaths.length);
     const sceneFrames = Math.max(1, Math.round(sceneDuration * FPS));
-    const zoomExpr = index % 2 === 0
-      ? "min(zoom+0.0022\\,1.13)"
-      : "min(1.10\\,1.04+sin(on/24)*0.025)";
-    const panX = index % 2 === 0 ? "iw/2-(iw/zoom/2)+sin(on/18)*28" : "iw/2-(iw/zoom/2)-sin(on/22)*24";
-    const panY = index % 2 === 0 ? "ih/2-(ih/zoom/2)+cos(on/20)*22" : "ih/2-(ih/zoom/2)+sin(on/19)*26";
+    const faster = style === "horror" || style === "brainrot";
+    const zoomExpr = faster
+      ? "min(zoom+0.0042\\,1.18)"
+      : index % 2 === 0
+        ? "min(zoom+0.0022\\,1.13)"
+        : "min(1.10\\,1.04+sin(on/24)*0.025)";
+    const panX = faster
+      ? "iw/2-(iw/zoom/2)+sin(on/8)*42"
+      : index % 2 === 0 ? "iw/2-(iw/zoom/2)+sin(on/18)*28" : "iw/2-(iw/zoom/2)-sin(on/22)*24";
+    const panY = faster
+      ? "ih/2-(ih/zoom/2)+cos(on/9)*38"
+      : index % 2 === 0 ? "ih/2-(ih/zoom/2)+cos(on/20)*22" : "ih/2-(ih/zoom/2)+sin(on/19)*26";
     return `[${index}:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},zoompan=z='${zoomExpr}':x='${panX}':y='${panY}':d=${sceneFrames}:s=${WIDTH}x${HEIGHT}:fps=${FPS},trim=duration=${sceneDuration.toFixed(3)},setpts=PTS-STARTPTS[v${index}]`;
   });
   filters.push(`${framePaths.map((_, index) => `[v${index}]`).join("")}concat=n=${framePaths.length}:v=1:a=0[base]`);
-  filters.push(`[base]subtitles='${subtitleFilterPath(subtitlePath)}'[vout]`);
+  if (style === "horror") {
+    filters.push(`[base]noise=alls=18:allf=t+u,eq=contrast=1.28:brightness=-0.045:saturation=0.65,vignette=PI/4,subtitles='${subtitleFilterPath(subtitlePath)}'[vout]`);
+  } else if (style === "brainrot") {
+    filters.push(`[base]eq=contrast=1.18:saturation=1.35,unsharp=5:5:0.85,subtitles='${subtitleFilterPath(subtitlePath)}'[vout]`);
+  } else {
+    filters.push(`[base]subtitles='${subtitleFilterPath(subtitlePath)}'[vout]`);
+  }
 
   args.push(
     "-filter_complex", filters.join(";"),
@@ -192,15 +225,16 @@ async function encodeVideo({ framePaths, audioPath, videoPath, duration, duratio
   await execFileAsync("ffmpeg", args, { timeout: 180_000, maxBuffer: 20 * 1024 * 1024 });
 }
 
-export async function generateVideo({ script, hook, niche = "", style = "dark", voice }) {
+export async function generateVideo({ script, hook, niche = "", style = "auto", voice }) {
   const safeScript = cleanText(script || hook, 1200);
   if (!safeScript) throw new Error("No script text supplied");
+  const resolvedStyle = resolveStyle({ niche, style });
 
-  if (shouldUseAgentMedia({ niche, style })) {
+  if (shouldUseAgentMedia({ niche, style: resolvedStyle })) {
     try {
       const estimatedCost = Number(process.env.AGENT_MEDIA_RENDER_COST_USD || 0.35);
       assertSpendAllowed(estimatedCost);
-      const videoUrl = await generateAgentMediaVideo({ script: safeScript, hook, niche, style });
+      const videoUrl = await generateAgentMediaVideo({ script: safeScript, hook, niche, style: resolvedStyle });
       recordRenderSpend({ source: "agentmedia", estimatedCost, videoPath: videoUrl });
       return videoUrl;
     } catch (error) {
@@ -224,20 +258,20 @@ export async function generateVideo({ script, hook, niche = "", style = "dark", 
   const framePaths = [];
 
   try {
-    await renderAudio({ audioPath, script: safeScript, style, voice });
+    await renderAudio({ audioPath, script: safeScript, style: resolvedStyle, voice });
     const duration = await audioDuration(audioPath);
-    console.log(`[VideoGen] Duration: ${duration}s`);
+    console.log(`[VideoGen] Duration: ${duration}s style=${resolvedStyle}`);
 
     const sceneTexts = splitScriptIntoScenes(safeScript, hook);
     const durations = sceneDurations(sceneTexts, duration);
-    writeSubtitleFile({ subtitlePath, script: safeScript, duration });
+    writeSubtitleFile({ subtitlePath, script: safeScript, duration, style: resolvedStyle });
     for (let i = 0; i < sceneTexts.length; i++) {
       const framePath = path.resolve(videoDir, `${id}_scene_${String(i + 1).padStart(2, "0")}.png`);
       framePaths.push(framePath);
-      await renderFrame({ frameScript, output: framePath, text: sceneTexts[i], niche, style, sceneIndex: i + 1, totalScenes: sceneTexts.length });
+      await renderFrame({ frameScript, output: framePath, text: sceneTexts[i], niche, style: resolvedStyle, sceneIndex: i + 1, totalScenes: sceneTexts.length });
     }
 
-    await encodeVideo({ framePaths, audioPath, videoPath, duration, durations, subtitlePath });
+    await encodeVideo({ framePaths, audioPath, videoPath, duration, durations, subtitlePath, style: resolvedStyle });
     const validation = await assertRenderableVideo(videoPath, { minDuration: 8, requireAudio: true, requireVertical: true });
     recordRenderSpend({ source: "local", estimatedCost: Number(process.env.LOCAL_RENDER_COST_USD || 0.02), videoPath });
     console.log(`[VideoGen] OK ${videoPath} (${validation.width}x${validation.height}, ${validation.duration.toFixed(1)}s)`);
