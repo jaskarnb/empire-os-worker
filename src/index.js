@@ -8,8 +8,18 @@ import { verifyAutomationReady, verifyMediaSource, verifyTaskCompletion } from "
 import { generateVideo } from "./tools/videoGen.js";
 import { getChannels, schedulePost } from "./tools/postiz.js";
 import { assertPolicySafePost } from "./tools/policyGuard.js";
+import { assertContentQuality, scorePostQuality } from "./agents/contentQuality.js";
+import { runNicheScout } from "./agents/nicheScout.js";
 import { renderOpsDashboard } from "./tools/opsDashboard.js";
 import { readLastOpsReport, readRecentIncidents } from "./tools/opsIncidents.js";
+import {
+  getAnalyticsSnapshots,
+  getAutomationControl,
+  getScheduledPosts,
+  getSpendState,
+  recordScheduledPost,
+  setAutomationPaused,
+} from "./tools/opsState.js";
 import { runOpsWatchers } from "./watchers/opsWatchers.js";
 import fs from "fs";
 import path from "path";
@@ -102,7 +112,52 @@ const server = http.createServer(async (req, res) => {
       ts: new Date().toISOString(),
       lastReport: readLastOpsReport(),
       recentIncidents: readRecentIncidents(25),
+      control: getAutomationControl(),
+      spend: getSpendState(),
+      scheduledPosts: getScheduledPosts(10),
+      analytics: getAnalyticsSnapshots(5),
     });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/ops/automation-status") {
+    sendJson(res, 200, {
+      status: "ok",
+      ts: new Date().toISOString(),
+      control: getAutomationControl(),
+      spend: getSpendState(),
+      scheduledPosts: getScheduledPosts(25),
+      analytics: getAnalyticsSnapshots(10),
+      niches: runNicheScout(),
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/ops/pause") {
+    const payload = await readJsonBody(req);
+    sendJson(res, 200, { status: "ok", control: setAutomationPaused(true, payload.reason || "Paused from ops endpoint") });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/ops/resume") {
+    const payload = await readJsonBody(req);
+    sendJson(res, 200, { status: "ok", control: setAutomationPaused(false, payload.reason || "Resumed from ops endpoint") });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/ops/analytics") {
+    sendJson(res, 200, { status: "ok", snapshots: getAnalyticsSnapshots(50), scheduledPosts: getScheduledPosts(50) });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/ops/niches") {
+    sendJson(res, 200, runNicheScout());
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/ops/quality-check") {
+    const payload = await readJsonBody(req);
+    sendJson(res, 200, { status: "ok", quality: scorePostQuality({ post: payload.post || payload, niche: payload.niche || "", audience: payload.audience || "general" }) });
     return;
   }
 
@@ -227,6 +282,7 @@ const server = http.createServer(async (req, res) => {
       const niche = payload.niche || "AI productivity tools and automation for beginners";
       const post = await generateE2ePost({ channelName, niche });
       assertPolicySafePost({ post, channelName, audience: "general", niche });
+      const quality = assertContentQuality({ post, niche, audience: "general" });
       const videoPath = await generateVideo({ script: post.script || post.caption, hook: post.hook, niche, style: payload.style || "dark" });
       const verification = await verifyMediaSource(videoPath);
       if (verification.status === "fail") {
@@ -241,7 +297,8 @@ const server = http.createServer(async (req, res) => {
         requireMedia: true,
         content: post.caption || post.script,
       });
-      sendJson(res, 200, { status: "pass", channelName, integrationId, niche, scheduledFor: scheduleAt, post, videoPath, verification, postiz });
+      recordScheduledPost({ title: post.title, channelName, integrationId, scheduledFor: scheduleAt, postiz, videoPath, niche });
+      sendJson(res, 200, { status: "pass", channelName, integrationId, niche, scheduledFor: scheduleAt, post, quality, videoPath, verification, postiz });
     } catch (error) {
       sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
     }
