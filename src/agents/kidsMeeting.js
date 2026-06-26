@@ -3,6 +3,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getChannels, getRecentPosts, schedulePost } from "../tools/postiz.js";
 import { assertPolicySafePost } from "../tools/policyGuard.js";
 import { generateVideo } from "../tools/videoGen.js";
+import { assertContentQuality } from "./contentQuality.js";
+import { isAutomationPaused, recordScheduledPost } from "../tools/opsState.js";
 
 const client = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -233,6 +235,11 @@ export async function runKidsMeeting() {
   console.log(`[Empire OS] Kids Meeting ${stamp}`);
   console.log("=".repeat(50));
 
+  if (isAutomationPaused()) {
+    console.log("[Control] Automation is paused - skipping Kids Meeting.");
+    return;
+  }
+
   let allChannels;
   try {
     allChannels = await getChannels();
@@ -292,6 +299,7 @@ export async function runKidsMeeting() {
 
       try {
         assertPolicySafePost({ post, channelName: name, audience: "kids", niche: config.niche });
+        assertContentQuality({ post, niche: config.niche, audience: "kids" });
         videoPath = await generateVideo({
           script: post.script || post.caption,
           hook: post.hook,
@@ -299,7 +307,8 @@ export async function runKidsMeeting() {
           style: "kids",
           voice: "en-US-AnaNeural",
         });
-        await schedulePost({ integrationId: ch.id, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
+        const postiz = await schedulePost({ integrationId: ch.id, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
+        recordScheduledPost({ title: post.title, channelName: name, integrationId: ch.id, scheduledFor: date, postiz, videoPath, niche: config.niche });
         console.log(`[Nova] Scheduled kids video at ${date}`);
       } catch (e) {
         console.error(`[RenderGuard] Skipped kids post: ${e.message}`);
