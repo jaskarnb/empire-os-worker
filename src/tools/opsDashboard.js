@@ -96,6 +96,7 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
       <button id="runBtn">Run Check</button>
       <button id="videoBtn" class="secondary">Run Video Test</button>
       <button id="postizBtn" class="secondary">Run Postiz Test</button>
+      <button id="e2eBtn" class="secondary">Run E2E Test</button>
     </div>
   </header>
   <main>
@@ -124,6 +125,7 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
     const runBtn = document.getElementById("runBtn");
     const videoBtn = document.getElementById("videoBtn");
     const postizBtn = document.getElementById("postizBtn");
+    const e2eBtn = document.getElementById("e2eBtn");
     const statusEl = document.getElementById("status");
     const reportEl = document.getElementById("report");
     const updatedEl = document.getElementById("updated");
@@ -229,6 +231,28 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
       } finally {
         updatedEl.textContent = new Date().toLocaleTimeString();
         postizBtn.disabled = false;
+      }
+    });
+    e2eBtn.addEventListener('click', async () => {
+      e2eBtn.disabled = true;
+      statusEl.textContent = 'running-e2e';
+      reportEl.textContent = 'Generating idea, rendering video, and scheduling through Postiz...';
+      try {
+        const res = await fetch('/ops/e2e-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        statusEl.textContent = data.status || 'unknown';
+        reportEl.textContent = JSON.stringify(data, null, 2);
+        await refreshStatus();
+      } catch (error) {
+        statusEl.textContent = 'error';
+        reportEl.textContent = error.message;
+      } finally {
+        updatedEl.textContent = new Date().toLocaleTimeString();
+        e2eBtn.disabled = false;
       }
     });
     refreshStatus().catch(() => {});
