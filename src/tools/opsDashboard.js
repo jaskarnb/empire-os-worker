@@ -59,7 +59,9 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
     h1 { margin: 0; font-size: 22px; font-weight: 700; }
     h2 { margin: 0 0 12px; font-size: 16px; }
     button { background: #238636; color: white; border: 0; border-radius: 6px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
+    button.secondary { background: #1f6feb; }
     button:disabled { opacity: 0.55; cursor: wait; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
     .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
     .checkGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .panel { border: 1px solid #30363d; border-radius: 8px; padding: 16px; background: #161b22; }
@@ -90,7 +92,10 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
       <h1>Empire OS Ops</h1>
       <div class="muted">Railway, Postiz, social, analytics, GitHub, render, secrets, and cost watchers</div>
     </div>
-    <button id="runBtn">Run Check</button>
+    <div class="actions">
+      <button id="runBtn">Run Check</button>
+      <button id="videoBtn" class="secondary">Run Video Test</button>
+    </div>
   </header>
   <main>
     <section class="grid">
@@ -116,6 +121,7 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
   </main>
   <script>
     const runBtn = document.getElementById("runBtn");
+    const videoBtn = document.getElementById("videoBtn");
     const statusEl = document.getElementById("status");
     const reportEl = document.getElementById("report");
     const updatedEl = document.getElementById("updated");
@@ -172,6 +178,33 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
       } finally {
         updatedEl.textContent = new Date().toLocaleTimeString();
         runBtn.disabled = false;
+      }
+    });
+    videoBtn.addEventListener('click', async () => {
+      videoBtn.disabled = true;
+      statusEl.textContent = 'rendering';
+      reportEl.textContent = 'Running one video test...';
+      try {
+        const res = await fetch('/ops/video-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            niche: 'AI productivity tools and automation for beginners',
+            style: 'dark',
+            hook: 'This automation saves creators hours',
+            script: 'This automation saves creators hours every week. Start by writing one repeatable task. Turn that task into a checklist. Then let your tools create the first draft while you review the final result. The goal is not replacing your judgment. The goal is removing the boring steps so you can spend more time making better content.'
+          })
+        });
+        const data = await res.json();
+        statusEl.textContent = data.status || 'unknown';
+        reportEl.textContent = JSON.stringify(data, null, 2);
+        await refreshStatus();
+      } catch (error) {
+        statusEl.textContent = 'error';
+        reportEl.textContent = error.message;
+      } finally {
+        updatedEl.textContent = new Date().toLocaleTimeString();
+        videoBtn.disabled = false;
       }
     });
     refreshStatus().catch(() => {});
