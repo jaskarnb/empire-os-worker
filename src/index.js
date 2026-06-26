@@ -5,9 +5,12 @@ import { runBrainRotMeeting } from "./agents/brainRotMeeting.js";
 import { runKidsMeeting } from "./agents/kidsMeeting.js";
 import { verifyAutomationReady, verifyMediaSource, verifyTaskCompletion } from "./agents/verifier.js";
 import { generateVideo } from "./tools/videoGen.js";
+import { getChannels, schedulePost } from "./tools/postiz.js";
 import { renderOpsDashboard } from "./tools/opsDashboard.js";
 import { readLastOpsReport, readRecentIncidents } from "./tools/opsIncidents.js";
 import { runOpsWatchers } from "./watchers/opsWatchers.js";
+import fs from "fs";
+import path from "path";
 
 const PORT = process.env.PORT || 3001;
 
@@ -19,6 +22,20 @@ function sendJson(res, statusCode, body) {
 function sendHtml(res, statusCode, body) {
   res.writeHead(statusCode, { "Content-Type": "text/html; charset=utf-8" });
   res.end(body);
+}
+
+function latestVideoPath() {
+  const videoDir = path.resolve(process.env.VIDEO_DIR || "./output/video");
+  if (!fs.existsSync(videoDir)) throw new Error(`No video directory found at ${videoDir}`);
+  const videos = fs.readdirSync(videoDir)
+    .filter((name) => name.toLowerCase().endsWith(".mp4"))
+    .map((name) => {
+      const filePath = path.join(videoDir, name);
+      return { filePath, mtime: fs.statSync(filePath).mtimeMs };
+    })
+    .sort((a, b) => b.mtime - a.mtime);
+  if (!videos.length) throw new Error(`No MP4 videos found in ${videoDir}`);
+  return videos[0].filePath;
 }
 
 async function readJsonBody(req) {
@@ -93,6 +110,34 @@ const server = http.createServer(async (req, res) => {
       });
       const verification = await verifyMediaSource(video);
       sendJson(res, verification.status === "fail" ? 503 : 200, { status: verification.status, video, verification });
+    } catch (error) {
+      sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/ops/postiz-test") {
+    try {
+      const payload = await readJsonBody(req);
+      const channels = await getChannels();
+      const channel = channels.find((item) => item?.id || item?._id || item?.integrationId);
+      if (!channel) throw new Error("No schedulable Postiz channel found");
+      const integrationId = payload.integrationId || channel.id || channel._id || channel.integrationId;
+      const videoPath = payload.videoPath || latestVideoPath();
+      const verification = await verifyMediaSource(videoPath);
+      if (verification.status === "fail") {
+        sendJson(res, 503, { status: "fail", step: "video-verification", videoPath, verification });
+        return;
+      }
+      const scheduleAt = payload.date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const result = await schedulePost({
+        integrationId,
+        date: scheduleAt,
+        mediaPath: videoPath,
+        requireMedia: true,
+        content: payload.content || "Ops test: verified Empire OS video pipeline and Postiz scheduling. This is a scheduled test post.",
+      });
+      sendJson(res, 200, { status: "pass", integrationId, scheduledFor: scheduleAt, videoPath, verification, postiz: result });
     } catch (error) {
       sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
     }
