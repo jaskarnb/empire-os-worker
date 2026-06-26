@@ -8,9 +8,7 @@ function escapeHtml(value) {
 }
 
 function incidentRows(incidents) {
-  if (!incidents.length) {
-    return "<tr><td colspan=\"5\" class=\"muted\">No incidents recorded yet.</td></tr>";
-  }
+  if (!incidents.length) return "<tr><td colspan=\"5\" class=\"muted\">No incidents recorded yet.</td></tr>";
   return incidents.map((item) => `
     <tr>
       <td><span class="badge ${escapeHtml(item.severity)}">${escapeHtml(item.severity)}</span></td>
@@ -29,10 +27,7 @@ function checkCards(report) {
     const details = check.incident || check.details || {};
     return `
       <article class="check ${escapeHtml(check.status)}">
-        <div class="checkTop">
-          <strong>${escapeHtml(check.agent)}</strong>
-          <span class="badge ${escapeHtml(check.severity)}">${escapeHtml(check.severity)}</span>
-        </div>
+        <div class="checkTop"><strong>${escapeHtml(check.agent)}</strong><span class="badge ${escapeHtml(check.severity)}">${escapeHtml(check.severity)}</span></div>
         <div class="statusLine">${escapeHtml(check.status)}</div>
         <pre>${escapeHtml(JSON.stringify(details, null, 2))}</pre>
       </article>
@@ -60,10 +55,13 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
     h2 { margin: 0 0 12px; font-size: 16px; }
     button { background: #238636; color: white; border: 0; border-radius: 6px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
     button.secondary { background: #1f6feb; }
+    button.warn { background: #da3633; }
     button:disabled { opacity: 0.55; cursor: wait; }
+    a { color: #58a6ff; }
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
     .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
-    .checkGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .opsGrid, .checkGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .opsGrid { margin-bottom: 18px; }
     .panel { border: 1px solid #30363d; border-radius: 8px; padding: 16px; background: #161b22; }
     .check { border: 1px solid #30363d; border-radius: 8px; padding: 14px; background: #0d1117; }
     .check.incident { border-color: #f0883e; }
@@ -73,6 +71,9 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
     .statusLine { color: #8b949e; margin: 6px 0 10px; text-transform: capitalize; }
     .metric { font-size: 28px; font-weight: 800; margin-top: 6px; }
     .muted { color: #8b949e; }
+    .miniList { display: grid; gap: 10px; }
+    .miniItem { border-top: 1px solid #30363d; padding-top: 10px; }
+    .miniItem:first-child { border-top: 0; padding-top: 0; }
     pre { white-space: pre-wrap; overflow: auto; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px; max-height: 420px; }
     .check pre { max-height: 180px; margin: 0; color: #8b949e; font-size: 12px; }
     table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 8px; }
@@ -83,20 +84,22 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
     .P1 { background: #f0883e; color: #111; }
     .P2 { background: #d29922; color: #111; }
     .P3 { background: #1f6feb; color: white; }
-    @media (max-width: 860px) { .grid, .checkGrid { grid-template-columns: 1fr; } header { align-items: flex-start; flex-direction: column; } }
+    @media (max-width: 860px) { .grid, .opsGrid, .checkGrid { grid-template-columns: 1fr; } header { align-items: flex-start; flex-direction: column; } }
   </style>
 </head>
 <body>
   <header>
     <div>
       <h1>Empire OS Ops</h1>
-      <div class="muted">Railway, Postiz, social, analytics, GitHub, render, secrets, and cost watchers</div>
+      <div class="muted">Automation control, spend, scheduling, niches, watchers, and render tests</div>
     </div>
     <div class="actions">
       <button id="runBtn">Run Check</button>
+      <button id="e2eBtn" class="secondary">Run E2E Test</button>
       <button id="videoBtn" class="secondary">Run Video Test</button>
       <button id="postizBtn" class="secondary">Run Postiz Test</button>
-      <button id="e2eBtn" class="secondary">Run E2E Test</button>
+      <button id="pauseBtn" class="warn">Pause</button>
+      <button id="resumeBtn" class="secondary">Resume</button>
     </div>
   </header>
   <main>
@@ -105,156 +108,81 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
       <div class="panel"><h2>Incidents</h2><div id="incidentCount" class="metric">${incidents.length}</div></div>
       <div class="panel"><h2>Last Updated</h2><div id="updated" class="metric">${escapeHtml(initialUpdated)}</div></div>
     </section>
-    <section class="panel">
-      <h2>Watcher Checks</h2>
-      <div id="checkCards" class="checkGrid">${checkCards(lastReport)}</div>
+    <section class="opsGrid">
+      <div class="panel"><h2>Automation Control</h2><div id="controlState" class="miniList muted">Loading...</div></div>
+      <div class="panel"><h2>Spend Guard</h2><div id="spendState" class="miniList muted">Loading...</div></div>
+      <div class="panel"><h2>Scheduled Posts</h2><div id="scheduledState" class="miniList muted">Loading...</div></div>
+      <div class="panel"><h2>Niche Scout</h2><div id="nicheState" class="miniList muted">Loading...</div></div>
     </section>
-    <section class="panel" style="margin-top:16px">
-      <h2>Incident Memory</h2>
-      <table>
-        <thead><tr><th>Severity</th><th>Agent</th><th>Service</th><th>Problem</th><th>Time</th></tr></thead>
-        <tbody id="incidentRows">${incidentRows(incidents)}</tbody>
-      </table>
-    </section>
-    <section class="panel" style="margin-top:16px">
-      <h2>Latest Check Report</h2>
-      <pre id="report" class="muted">${initialReport}</pre>
-    </section>
+    <section class="panel" style="margin-bottom:16px"><h2>Latest Video</h2><a href="/ops/latest-video-page" target="_blank" rel="noreferrer">Open latest video preview</a></section>
+    <section class="panel"><h2>Watcher Checks</h2><div id="checkCards" class="checkGrid">${checkCards(lastReport)}</div></section>
+    <section class="panel" style="margin-top:16px"><h2>Incident Memory</h2><table><thead><tr><th>Severity</th><th>Agent</th><th>Service</th><th>Problem</th><th>Time</th></tr></thead><tbody id="incidentRows">${incidentRows(incidents)}</tbody></table></section>
+    <section class="panel" style="margin-top:16px"><h2>Latest Check Report</h2><pre id="report" class="muted">${initialReport}</pre></section>
   </main>
   <script>
-    const runBtn = document.getElementById("runBtn");
-    const videoBtn = document.getElementById("videoBtn");
-    const postizBtn = document.getElementById("postizBtn");
-    const e2eBtn = document.getElementById("e2eBtn");
-    const statusEl = document.getElementById("status");
-    const reportEl = document.getElementById("report");
-    const updatedEl = document.getElementById("updated");
-    const incidentCountEl = document.getElementById("incidentCount");
-    const rowsEl = document.getElementById("incidentRows");
-    const checkCardsEl = document.getElementById("checkCards");
-    function esc(value) {
-      return String(value ?? "").replace(/[&<>']/g, (char) => {
-        switch (char) {
-          case "&": return "&amp;";
-          case "<": return "&lt;";
-          case ">": return "&gt;";
-          case "'": return "&#039;";
-          default: return char;
-        }
-      });
-    }
+    const ids = ['runBtn','videoBtn','postizBtn','e2eBtn','pauseBtn','resumeBtn','status','report','updated','incidentCount','incidentRows','checkCards','controlState','spendState','scheduledState','nicheState'];
+    const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+    function esc(value) { return String(value ?? '').replace(/[&<>']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#039;' }[char])); }
     function drawIncidents(incidents) {
-      incidentCountEl.textContent = incidents.length;
-      rowsEl.innerHTML = incidents.length ? incidents.map(item => '<tr><td><span class="badge '+esc(item.severity)+'">'+esc(item.severity)+'</span></td><td>'+esc(item.agent)+'</td><td>'+esc(item.service)+'</td><td>'+esc(item.problem)+'</td><td>'+esc(item.ts)+'</td></tr>').join('') : '<tr><td colspan="5" class="muted">No incidents recorded yet.</td></tr>';
+      el.incidentCount.textContent = incidents.length;
+      el.incidentRows.innerHTML = incidents.length ? incidents.map(item => '<tr><td><span class="badge '+esc(item.severity)+'">'+esc(item.severity)+'</span></td><td>'+esc(item.agent)+'</td><td>'+esc(item.service)+'</td><td>'+esc(item.problem)+'</td><td>'+esc(item.ts)+'</td></tr>').join('') : '<tr><td colspan="5" class="muted">No incidents recorded yet.</td></tr>';
     }
     function drawChecks(report) {
       const checks = Array.isArray(report?.checks) ? report.checks : [];
-      checkCardsEl.innerHTML = checks.length ? checks.map(check => {
-        const details = check.incident || check.details || {};
-        return '<article class="check '+esc(check.status)+'"><div class="checkTop"><strong>'+esc(check.agent)+'</strong><span class="badge '+esc(check.severity)+'">'+esc(check.severity)+'</span></div><div class="statusLine">'+esc(check.status)+'</div><pre>'+esc(JSON.stringify(details, null, 2))+'</pre></article>';
-      }).join('') : '<div class="muted">No watcher check has run yet.</div>';
+      el.checkCards.innerHTML = checks.length ? checks.map(check => '<article class="check '+esc(check.status)+'"><div class="checkTop"><strong>'+esc(check.agent)+'</strong><span class="badge '+esc(check.severity)+'">'+esc(check.severity)+'</span></div><div class="statusLine">'+esc(check.status)+'</div><pre>'+esc(JSON.stringify(check.incident || check.details || {}, null, 2))+'</pre></article>').join('') : '<div class="muted">No watcher check has run yet.</div>';
+    }
+    function drawOpsState(data) {
+      const control = data.control || {};
+      const spend = data.spend || {};
+      const scheduled = data.scheduledPosts || [];
+      const analytics = data.analytics || [];
+      el.controlState.innerHTML = '<div class="miniItem"><strong>'+esc(control.paused ? 'Paused' : 'Running')+'</strong></div><div class="miniItem">'+esc(control.reason || 'No manual control note')+'</div>';
+      el.spendState.innerHTML = '<div class="miniItem"><strong>$'+esc(spend.estimatedSpend ?? 0)+'</strong> spent today</div><div class="miniItem">Budget: $'+esc(spend.dailyBudget ?? 0)+' | Renders: '+esc(spend.renders ?? 0)+' | Remaining: $'+esc(spend.remaining ?? 0)+'</div>';
+      el.scheduledState.innerHTML = scheduled.length ? scheduled.slice(0, 5).map(post => '<div class="miniItem"><strong>'+esc(post.title || 'Untitled')+'</strong><br>'+esc(post.channelName || 'channel')+' | '+esc(post.scheduledFor || '')+'</div>').join('') : '<div class="miniItem">No scheduled posts recorded yet.</div>';
+      el.nicheState.innerHTML = analytics.length ? '<div class="miniItem">'+esc(analytics.length)+' analytics snapshot(s) saved</div>' : '<div class="miniItem">Analytics will fill in after posts publish.</div>';
+      fetch('/ops/niches').then(res => res.json()).then(niches => {
+        const top = (niches.recommendations || []).slice(0, 4);
+        if (top.length) el.nicheState.innerHTML = top.map(item => '<div class="miniItem"><strong>'+esc(item.action.toUpperCase())+'</strong> '+esc(item.niche)+'<br>Score '+esc(item.score)+' - '+esc(item.reason)+'</div>').join('');
+      }).catch(() => {});
     }
     async function refreshStatus() {
       const res = await fetch('/ops/status');
       const data = await res.json();
       drawIncidents(data.recentIncidents || []);
+      drawOpsState(data);
       if (data.lastReport) {
-        statusEl.textContent = data.lastReport.status || 'unknown';
-        reportEl.textContent = JSON.stringify(data.lastReport, null, 2);
-        updatedEl.textContent = data.lastReport.finishedAt ? new Date(data.lastReport.finishedAt).toLocaleTimeString() : new Date().toLocaleTimeString();
+        el.status.textContent = data.lastReport.status || 'unknown';
+        el.report.textContent = JSON.stringify(data.lastReport, null, 2);
+        el.updated.textContent = data.lastReport.finishedAt ? new Date(data.lastReport.finishedAt).toLocaleTimeString() : new Date().toLocaleTimeString();
         drawChecks(data.lastReport);
       }
     }
-    runBtn.addEventListener('click', async () => {
-      runBtn.disabled = true;
-      statusEl.textContent = 'running';
-      reportEl.textContent = 'Running watchers...';
+    async function post(path, button, loading) {
+      button.disabled = true;
+      el.status.textContent = loading;
+      el.report.textContent = loading + '...';
       try {
-        const res = await fetch('/ops/check', { method: 'POST' });
+        const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
         const data = await res.json();
-        statusEl.textContent = data.status || 'unknown';
-        reportEl.textContent = JSON.stringify(data, null, 2);
-        drawChecks(data);
-        drawIncidents(data.recentIncidents || []);
-      } catch (error) {
-        statusEl.textContent = 'error';
-        reportEl.textContent = error.message;
-      } finally {
-        updatedEl.textContent = new Date().toLocaleTimeString();
-        runBtn.disabled = false;
-      }
-    });
-    videoBtn.addEventListener('click', async () => {
-      videoBtn.disabled = true;
-      statusEl.textContent = 'rendering';
-      reportEl.textContent = 'Running one video test...';
-      try {
-        const res = await fetch('/ops/video-test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            niche: 'AI productivity tools and automation for beginners',
-            style: 'dark',
-            hook: 'This automation saves creators hours',
-            script: 'This automation saves creators hours every week. Start by writing one repeatable task. Turn that task into a checklist. Then let your tools create the first draft while you review the final result. The goal is not replacing your judgment. The goal is removing the boring steps so you can spend more time making better content.'
-          })
-        });
-        const data = await res.json();
-        statusEl.textContent = data.status || 'unknown';
-        reportEl.textContent = JSON.stringify(data, null, 2);
+        el.status.textContent = data.status || 'unknown';
+        el.report.textContent = JSON.stringify(data, null, 2);
+        if (data.checks) drawChecks(data);
+        if (data.recentIncidents) drawIncidents(data.recentIncidents);
         await refreshStatus();
       } catch (error) {
-        statusEl.textContent = 'error';
-        reportEl.textContent = error.message;
+        el.status.textContent = 'error';
+        el.report.textContent = error.message;
       } finally {
-        updatedEl.textContent = new Date().toLocaleTimeString();
-        videoBtn.disabled = false;
+        el.updated.textContent = new Date().toLocaleTimeString();
+        button.disabled = false;
       }
-    });
-    postizBtn.addEventListener('click', async () => {
-      postizBtn.disabled = true;
-      statusEl.textContent = 'scheduling';
-      reportEl.textContent = 'Uploading latest verified video to Postiz and scheduling one test post...';
-      try {
-        const res = await fetch('/ops/postiz-test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        });
-        const data = await res.json();
-        statusEl.textContent = data.status || 'unknown';
-        reportEl.textContent = JSON.stringify(data, null, 2);
-        await refreshStatus();
-      } catch (error) {
-        statusEl.textContent = 'error';
-        reportEl.textContent = error.message;
-      } finally {
-        updatedEl.textContent = new Date().toLocaleTimeString();
-        postizBtn.disabled = false;
-      }
-    });
-    e2eBtn.addEventListener('click', async () => {
-      e2eBtn.disabled = true;
-      statusEl.textContent = 'running-e2e';
-      reportEl.textContent = 'Generating idea, rendering video, and scheduling through Postiz...';
-      try {
-        const res = await fetch('/ops/e2e-test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        });
-        const data = await res.json();
-        statusEl.textContent = data.status || 'unknown';
-        reportEl.textContent = JSON.stringify(data, null, 2);
-        await refreshStatus();
-      } catch (error) {
-        statusEl.textContent = 'error';
-        reportEl.textContent = error.message;
-      } finally {
-        updatedEl.textContent = new Date().toLocaleTimeString();
-        e2eBtn.disabled = false;
-      }
-    });
+    }
+    el.runBtn.addEventListener('click', () => post('/ops/check', el.runBtn, 'running'));
+    el.videoBtn.addEventListener('click', () => post('/ops/video-test', el.videoBtn, 'rendering'));
+    el.postizBtn.addEventListener('click', () => post('/ops/postiz-test', el.postizBtn, 'scheduling'));
+    el.e2eBtn.addEventListener('click', () => post('/ops/e2e-test', el.e2eBtn, 'running-e2e'));
+    el.pauseBtn.addEventListener('click', () => post('/ops/pause', el.pauseBtn, 'pausing'));
+    el.resumeBtn.addEventListener('click', () => post('/ops/resume', el.resumeBtn, 'resuming'));
     refreshStatus().catch(() => {});
   </script>
 </body>
