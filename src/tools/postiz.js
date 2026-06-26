@@ -40,6 +40,20 @@ function channelType(channel) {
   return channel?.identifier || channel?.provider || channel?.type || channel?.social || channel?.platform || "instagram";
 }
 
+function postSettings(channel) {
+  return {
+    __type: channelType(channel),
+    privacy_level: "PUBLIC_TO_EVERYONE",
+    duet: false,
+    stitch: false,
+    comment: true,
+    autoAddMusic: "no",
+    brand_content_toggle: false,
+    brand_organic_toggle: false,
+    content_posting_method: "DIRECT_POST",
+  };
+}
+
 function findChannel(integrationId) {
   return (_channels || []).find((channel) => {
     const ids = [channel?.id, channel?._id, channel?.integrationId].filter(Boolean).map(String);
@@ -153,7 +167,7 @@ export async function schedulePost({ integrationId, content, date, mediaPath, me
     posts: [{
       integration: { id: integrationId },
       value: [{ content, image: mediaArray }],
-      settings: { __type: channelType(channel) },
+      settings: postSettings(channel),
     }],
   };
 
