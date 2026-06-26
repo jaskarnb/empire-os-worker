@@ -20,7 +20,19 @@ function chooseDuration(script) {
 
 function actorDescription({ niche = "", style = "dark" }) {
   const lower = `${niche} ${style}`.toLowerCase();
-  const base = "vertical 9:16 AI-generated UGC video, fast cuts, natural creator delivery, expressive face, relevant b-roll scenes, kinetic captions synced to speech, no static photo slideshow";
+  const base = [
+    "vertical 9:16 AI-generated short-form video",
+    "first second must feel like a scroll-stopping TikTok/Reels hook",
+    "fast cuts every 1-3 seconds",
+    "realistic camera movement and scene changes",
+    "kinetic captions synced tightly to speech",
+    "high-retention pacing with a reveal or payoff",
+    "no static photo slideshow",
+    "no still images with only text",
+  ].join(", ");
+  if (lower.includes("horror") || lower.includes("scary") || lower.includes("paranormal") || lower.includes("true crime") || lower.includes("mystery")) {
+    return `${base}, original fictional analog horror/AI dispatch system style, CCTV camera angles, corrupted system logs, emergency alert UI, map pins, low-light hallway or road b-roll, suspense sound design, no copied footage, no real tragedy exploitation`;
+  }
   if (lower.includes("fitness")) return `${base}, energetic fitness coach in a modern gym, workout b-roll matched to the script`;
   if (lower.includes("finance") || lower.includes("wealth") || lower.includes("money")) return `${base}, trustworthy young finance creator in a clean home office, money graphics and app-screen b-roll matched to the script`;
   if (lower.includes("tech") || lower.includes("ai") || lower.includes("productivity")) return `${base}, curious tech creator at a desk with soft lighting, AI tools, laptop, workflow, and automation b-roll matched to each sentence`;
@@ -92,7 +104,7 @@ export function shouldUseAgentMedia({ niche = "", style = "dark" }) {
   if (!enabled()) return false;
   const mode = String(process.env.AGENT_MEDIA_MODE || "ugc-only").trim();
   if (mode === "all") return true;
-  if (style === "brainrot" || style === "kids") return false;
+  if (style === "brainrot" || style === "kids" || style === "horror") return false;
 
   const lower = niche.toLowerCase();
   return ["finance", "wealth", "money", "fitness", "tech", "ai", "productivity", "business", "side hustle"].some((term) => lower.includes(term));
