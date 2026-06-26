@@ -145,29 +145,45 @@ async function renderFrame({ frameScript, output, text, niche, style, sceneIndex
   ], { timeout: 30_000 });
 }
 
-async function renderAudio({ audioPath, script, style, voice }) {
-  const styleVoiceMap = {
-    dark: "en-US-AriaNeural",
-    horror: "en-US-GuyNeural",
-    brainrot: "en-US-JennyNeural",
-    kids: "en-US-AnaNeural",
+function voiceProfile({ style, voice }) {
+  const profiles = {
+    dark: {
+      label: "clear creator",
+      voice: process.env.DARK_TTS_VOICE || "en-US-AriaNeural",
+      rate: process.env.DARK_TTS_RATE || "+0%",
+    },
+    horror: {
+      label: "slow suspense",
+      voice: process.env.HORROR_TTS_VOICE || "en-US-GuyNeural",
+      rate: process.env.HORROR_TTS_RATE || "-12%",
+    },
+    brainrot: {
+      label: "fast high-energy",
+      voice: process.env.BRAINROT_TTS_VOICE || "en-US-JennyNeural",
+      rate: process.env.BRAINROT_TTS_RATE || "+15%",
+    },
+    kids: {
+      label: "cheerful kids",
+      voice: process.env.KIDS_TTS_VOICE || "en-US-AnaNeural",
+      rate: process.env.KIDS_TTS_RATE || "-8%",
+    },
   };
-  const styleRateMap = {
-    horror: "-6%",
-    brainrot: "+15%",
-    kids: "-10%",
-  };
+  const fallback = profiles.dark;
+  const profile = profiles[style] || fallback;
+  return { ...profile, voice: voice || process.env.DEFAULT_TTS_VOICE || profile.voice };
+}
 
-  const ttsVoice = voice || process.env.DEFAULT_TTS_VOICE || styleVoiceMap[style] || "en-US-AriaNeural";
-  const args = ["--voice", ttsVoice];
-  if (styleRateMap[style]) {
-    const rate = styleRateMap[style];
+async function renderAudio({ audioPath, script, style, voice }) {
+  const profile = voiceProfile({ style, voice });
+  const args = ["--voice", profile.voice];
+  if (profile.rate && profile.rate !== "+0%") {
+    const rate = profile.rate;
     if (rate.startsWith("-")) args.push(`--rate=${rate}`);
     else args.push("--rate", rate);
   }
   args.push("--text", cleanText(script, 1200), "--write-media", audioPath);
 
-  console.log(`[VideoGen] TTS voice=${ttsVoice} style=${style}${styleRateMap[style] ? ` rate=${styleRateMap[style]}` : ""}`);
+  console.log(`[VideoGen] TTS style=${style} profile=${profile.label} voice=${profile.voice}${profile.rate ? ` rate=${profile.rate}` : ""}`);
   await execFileAsync("edge-tts", args, { timeout: 60_000 });
 }
 
