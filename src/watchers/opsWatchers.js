@@ -317,6 +317,16 @@ function checkCosts() {
   const agent = "Cost Watcher";
   const dailyBudget = Number(process.env.DAILY_SPEND_LIMIT_USD || 0);
   const estimatedSpend = Number(process.env.ESTIMATED_DAILY_SPEND_USD || 0);
+  if (process.env.AGENT_MEDIA_ENABLED === "true" && dailyBudget <= 0) {
+    return fail({
+      agent,
+      severity: "P1",
+      service: "costs",
+      problem: "Paid video generation is enabled without a daily spend limit",
+      evidence: ["AGENT_MEDIA_ENABLED=true", "DAILY_SPEND_LIMIT_USD=missing"],
+      recommendedAction: "Set DAILY_SPEND_LIMIT_USD before enabling automatic paid posting",
+    });
+  }
   if (dailyBudget > 0 && estimatedSpend > dailyBudget) {
     return fail({
       agent,
