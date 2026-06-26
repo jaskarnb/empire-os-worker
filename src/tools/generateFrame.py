@@ -13,6 +13,7 @@ import sys
 import json
 import math
 import textwrap
+import random
 from PIL import Image, ImageDraw, ImageFont
 
 # ── Accent colours for dark style ─────────────────────────────────────────────
@@ -56,35 +57,94 @@ def draw_outlined_text(draw, x, y, text, font, fill, outline, width=5):
     draw.text((x, y), text, font=font, fill=fill)
 
 # ── DARK style — adult channels ────────────────────────────────────────────────
-def render_dark(draw, W, H, hook, niche):
+def keywords(text):
+    stop = set("the a an and or to of in for with on your you this that is are can now just into from it as by be".split())
+    words = [w.strip(".,!?;:()[]'\"").upper() for w in text.split()]
+    words = [w for w in words if len(w) > 3 and w.lower() not in stop]
+    return words[:5] or ["SMART", "SYSTEM"]
+
+def draw_phone_mock(draw, x, y, w, h, accent, labels):
+    draw.rounded_rectangle([x, y, x + w, y + h], radius=44, fill=(12, 16, 28), outline=(235, 235, 245), width=5)
+    draw.rounded_rectangle([x + 28, y + 70, x + w - 28, y + h - 50], radius=28, fill=(24, 30, 46))
+    for i, label in enumerate(labels[:4]):
+        yy = y + 115 + i * 125
+        color = accent if i == 0 else (54, 63, 88)
+        draw.rounded_rectangle([x + 55, yy, x + w - 55, yy + 74], radius=22, fill=color)
+        font = load_font(26)
+        draw.text((x + 82, yy + 22), label[:18], font=font, fill=(255, 255, 255))
+
+def draw_data_cards(draw, W, H, accent, labels, scene_index):
+    font_label = load_font(34)
+    font_value = load_font(52)
+    card_w, card_h = 360, 150
+    starts = [(72, 230), (648, 360), (86, 1390), (640, 1260)]
+    for i, (x, y) in enumerate(starts):
+        shift = int(math.sin(scene_index + i) * 18)
+        draw.rounded_rectangle([x + shift, y, x + card_w + shift, y + card_h], radius=26, fill=(20, 26, 42), outline=accent, width=3)
+        draw.text((x + 28 + shift, y + 24), labels[i % len(labels)][:15], font=font_label, fill=(190, 200, 220))
+        value = ["AUTO", "2 MIN", "DONE", "+HOURS"][i % 4]
+        draw.text((x + 28 + shift, y + 74), value, font=font_value, fill=(255, 255, 255))
+
+def draw_visual_scene(draw, W, H, hook, niche, accent, scene_index, total_scenes):
+    labels = keywords(hook)
+    draw_data_cards(draw, W, H, accent, labels, scene_index)
+    draw_phone_mock(draw, 350, 520, 380, 760, accent, labels)
+
+    # Flow lines that make the image feel generated for the specific text.
+    for i in range(7):
+        y = 455 + i * 115
+        phase = scene_index * 0.8 + i
+        x1 = 85 + int(math.sin(phase) * 24)
+        x2 = 995 + int(math.cos(phase) * 24)
+        line_color = tuple(max(0, min(255, int(c * 0.55))) for c in accent)
+        draw.line([(x1, y), (x2, y + 56)], fill=line_color, width=3)
+        draw.ellipse([x1 - 7, y - 7, x1 + 7, y + 7], fill=accent)
+
+    font_step = load_font(34)
+    progress_w = 760
+    progress_x = (W - progress_w) // 2
+    progress_y = H - 120
+    draw.rounded_rectangle([progress_x, progress_y, progress_x + progress_w, progress_y + 18], radius=9, fill=(42, 48, 65))
+    fill_w = int(progress_w * scene_index / max(1, total_scenes))
+    draw.rounded_rectangle([progress_x, progress_y, progress_x + fill_w, progress_y + 18], radius=9, fill=accent)
+    draw.text((progress_x, progress_y - 48), f"SCENE {scene_index}/{total_scenes}", font=font_step, fill=(180, 190, 210))
+
+def render_dark(draw, W, H, hook, niche, scene_index=1, total_scenes=1):
     accent = get_accent(niche)
 
-    # Gradient accent bars
-    for i in range(8):
-        r, g, b = accent
-        draw.rectangle([0, i * 2, W, i * 2 + 2], fill=(r, g, b))
-        draw.rectangle([0, H - (i * 2 + 2), W, H - i * 2], fill=(r, g, b))
-    draw.rectangle([0, 0, W, 14], fill=accent)
-    draw.rectangle([0, H - 14, W, H], fill=accent)
+    for y in range(H):
+        t = y / H
+        bg = (
+            int(7 + t * 14 + scene_index * 2),
+            int(10 + t * 10),
+            int(22 + t * 24),
+        )
+        draw.line([(0, y), (W, y)], fill=bg)
 
-    font_big   = load_font(88)
-    font_small = load_font(38)
+    for i in range(11):
+        angle = (i * 0.8) + scene_index
+        cx = int(W * (0.12 + (i % 4) * 0.25) + math.sin(angle) * 36)
+        cy = int(H * (0.12 + (i // 4) * 0.28) + math.cos(angle) * 42)
+        radius = 55 + (i % 3) * 24
+        color = tuple(min(255, int(c * (0.22 + i * 0.015))) for c in accent)
+        draw.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], outline=color, width=3)
+
+    draw_visual_scene(draw, W, H, hook, niche, accent, scene_index, total_scenes)
+
+    font_big = load_font(72)
 
     lines = textwrap.wrap(hook.upper(), width=13) or [hook.upper()[:13]]
-    line_h = 110
-    y0 = (H - len(lines) * line_h) // 2 - 40
+    lines = lines[:3]
+    line_h = 86
+    y0 = 150
 
     for i, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=font_big)
         tw = bbox[2] - bbox[0]
         x = (W - tw) // 2
         y = y0 + i * line_h
-        draw.text((x + 4, y + 4), line, font=font_big, fill=(0, 0, 0))   # shadow
+        draw.text((x + 5, y + 5), line, font=font_big, fill=(0, 0, 0))
         draw.text((x, y),          line, font=font_big, fill=(255, 255, 255))
-
-    cta = "WATCH TILL THE END"
-    bbox = draw.textbbox((0, 0), cta, font=font_small)
-    draw.text(((W - (bbox[2] - bbox[0])) // 2, H - 100), cta, font=font_small, fill=accent)
 
 
 # ── BRAINROT style — Gen Z / meme channels ────────────────────────────────────
@@ -231,7 +291,7 @@ def render_kids(draw, W, H, hook, niche):
 
 
 # ── Main dispatcher ────────────────────────────────────────────────────────────
-def generate_frame(hook, output_path, niche="", style="dark"):
+def generate_frame(hook, output_path, niche="", style="dark", scene_index=1, total_scenes=1):
     W, H = 1080, 1920
 
     # Base background colour (overwritten by render functions for brainrot/kids)
@@ -244,7 +304,7 @@ def generate_frame(hook, output_path, niche="", style="dark"):
     elif style == "kids":
         render_kids(draw, W, H, hook, niche)
     else:
-        render_dark(draw, W, H, hook, niche)
+        render_dark(draw, W, H, hook, niche, scene_index, total_scenes)
 
     img.save(output_path, "PNG")
     print(f"[generateFrame] Saved: {output_path} (style={style})", flush=True)
@@ -260,4 +320,6 @@ if __name__ == "__main__":
         args["output"],
         args.get("niche", ""),
         args.get("style", "dark"),
+        int(args.get("sceneIndex", 1)),
+        int(args.get("totalScenes", 1)),
     )

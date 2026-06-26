@@ -13,18 +13,19 @@ function clean(value, maxLength = 900) {
 
 function chooseDuration(script) {
   const words = clean(script, 2000).split(/\s+/).filter(Boolean).length;
-  if (words <= 35) return 10;
-  if (words <= 60) return 15;
-  return 15;
+  if (words <= 45) return 20;
+  if (words <= 85) return 35;
+  return 50;
 }
 
 function actorDescription({ niche = "", style = "dark" }) {
   const lower = `${niche} ${style}`.toLowerCase();
-  if (lower.includes("fitness")) return "an energetic fitness coach in a modern gym, confident and friendly, vertical UGC selfie style";
-  if (lower.includes("finance") || lower.includes("wealth") || lower.includes("money")) return "a trustworthy young finance creator in a clean home office, confident and clear, vertical UGC selfie style";
-  if (lower.includes("tech") || lower.includes("ai") || lower.includes("productivity")) return "a curious tech creator at a desk with soft lighting, modern and upbeat, vertical UGC selfie style";
-  if (lower.includes("side hustle") || lower.includes("business")) return "a relatable young entrepreneur in a simple workspace, direct and energetic, vertical UGC selfie style";
-  return "a relatable short-form creator speaking directly to camera, natural lighting, high-retention vertical UGC style";
+  const base = "vertical 9:16 AI-generated UGC video, fast cuts, natural creator delivery, expressive face, relevant b-roll scenes, kinetic captions synced to speech, no static photo slideshow";
+  if (lower.includes("fitness")) return `${base}, energetic fitness coach in a modern gym, workout b-roll matched to the script`;
+  if (lower.includes("finance") || lower.includes("wealth") || lower.includes("money")) return `${base}, trustworthy young finance creator in a clean home office, money graphics and app-screen b-roll matched to the script`;
+  if (lower.includes("tech") || lower.includes("ai") || lower.includes("productivity")) return `${base}, curious tech creator at a desk with soft lighting, AI tools, laptop, workflow, and automation b-roll matched to each sentence`;
+  if (lower.includes("side hustle") || lower.includes("business")) return `${base}, relatable young entrepreneur in a simple workspace, business workflow b-roll matched to the script`;
+  return `${base}, relatable short-form creator speaking directly to camera, visual scenes matched to each sentence`;
 }
 
 function extractVideoUrl(data) {
@@ -89,7 +90,7 @@ async function pollSkillRun(runId) {
 
 export function shouldUseAgentMedia({ niche = "", style = "dark" }) {
   if (!enabled()) return false;
-  const mode = process.env.AGENT_MEDIA_MODE || "ugc-only";
+  const mode = String(process.env.AGENT_MEDIA_MODE || "ugc-only").trim();
   if (mode === "all") return true;
   if (style === "brainrot" || style === "kids") return false;
 
