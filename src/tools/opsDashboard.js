@@ -95,6 +95,7 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
     <div class="actions">
       <button id="runBtn">Run Check</button>
       <button id="videoBtn" class="secondary">Run Video Test</button>
+      <button id="postizBtn" class="secondary">Run Postiz Test</button>
     </div>
   </header>
   <main>
@@ -122,6 +123,7 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
   <script>
     const runBtn = document.getElementById("runBtn");
     const videoBtn = document.getElementById("videoBtn");
+    const postizBtn = document.getElementById("postizBtn");
     const statusEl = document.getElementById("status");
     const reportEl = document.getElementById("report");
     const updatedEl = document.getElementById("updated");
@@ -205,6 +207,28 @@ export function renderOpsDashboard({ incidents = [], lastReport = null } = {}) {
       } finally {
         updatedEl.textContent = new Date().toLocaleTimeString();
         videoBtn.disabled = false;
+      }
+    });
+    postizBtn.addEventListener('click', async () => {
+      postizBtn.disabled = true;
+      statusEl.textContent = 'scheduling';
+      reportEl.textContent = 'Uploading latest verified video to Postiz and scheduling one test post...';
+      try {
+        const res = await fetch('/ops/postiz-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        statusEl.textContent = data.status || 'unknown';
+        reportEl.textContent = JSON.stringify(data, null, 2);
+        await refreshStatus();
+      } catch (error) {
+        statusEl.textContent = 'error';
+        reportEl.textContent = error.message;
+      } finally {
+        updatedEl.textContent = new Date().toLocaleTimeString();
+        postizBtn.disabled = false;
       }
     });
     refreshStatus().catch(() => {});
