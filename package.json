@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "smoke:policy": "node scripts/policyGuardSmoke.js"
+    "smoke:policy": "node scripts/policyGuardSmoke.js",
+    "smoke:verifier": "node scripts/verifierSmoke.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",

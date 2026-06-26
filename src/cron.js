@@ -8,6 +8,7 @@ import cron from "node-cron";
 import { runDailyMeeting } from "./agents/dailyMeeting.js";
 import { runBrainRotMeeting } from "./agents/brainRotMeeting.js";
 import { runKidsMeeting } from "./agents/kidsMeeting.js";
+import { runVerifierAfterTask } from "./agents/verifier.js";
 import { runOpsWatchers } from "./watchers/opsWatchers.js";
 
 async function runAllMeetings() {
@@ -15,18 +16,21 @@ async function runAllMeetings() {
 
   try {
     await runDailyMeeting();
+    await runVerifierAfterTask("daily-meeting");
   } catch (e) {
     console.error("[Cron] Daily meeting crashed:", e.message);
   }
 
   try {
     await runBrainRotMeeting();
+    await runVerifierAfterTask("brainrot-meeting");
   } catch (e) {
     console.error("[Cron] Brain rot meeting crashed:", e.message);
   }
 
   try {
     await runKidsMeeting();
+    await runVerifierAfterTask("kids-meeting");
   } catch (e) {
     console.error("[Cron] Kids meeting crashed:", e.message);
   }
