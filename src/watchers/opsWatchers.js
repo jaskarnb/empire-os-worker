@@ -263,6 +263,26 @@ function checkSecrets() {
   return ok(agent, { requiredPresent: required.length, recommendedMissing: missingRecommended });
 }
 
+function checkAgentMedia() {
+  const agent = "AgentMedia Watcher";
+  const enabled = process.env.AGENT_MEDIA_ENABLED === "true";
+  const hasKey = Boolean(process.env.AGENT_MEDIA_API_KEY);
+  if (enabled && !hasKey) {
+    return fail({
+      agent,
+      severity: "P1",
+      service: "agentmedia",
+      problem: "AgentMedia is enabled but no API key is configured",
+      evidence: ["AGENT_MEDIA_ENABLED=true", "AGENT_MEDIA_API_KEY=missing"],
+      recommendedAction: "Add AGENT_MEDIA_API_KEY in Railway or disable AgentMedia",
+    });
+  }
+  if (!enabled) {
+    return notice(agent, { enabled, hasKey, note: "AgentMedia is not enabled; local renderer is the fallback" });
+  }
+  return ok(agent, { enabled, hasKey, mode: process.env.AGENT_MEDIA_MODE || "ugc-only" });
+}
+
 function checkRenderOutput() {
   const agent = "Render Watcher";
   const videoDir = path.resolve(process.env.VIDEO_DIR || "./output/video");
@@ -321,6 +341,7 @@ export async function runOpsWatchers() {
   const startedAt = new Date().toISOString();
   const checks = [
     checkSecrets(),
+    checkAgentMedia(),
     checkRenderOutput(),
     checkCosts(),
     await checkRailwayHealth(),
