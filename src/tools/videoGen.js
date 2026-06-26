@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { generateAgentMediaVideo, shouldUseAgentMedia } from "./agentMedia.js";
 import { assertRenderableVideo } from "./renderGuard.js";
+import { assertSpendAllowed, recordRenderSpend } from "./opsState.js";
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -197,7 +198,11 @@ export async function generateVideo({ script, hook, niche = "", style = "dark", 
 
   if (shouldUseAgentMedia({ niche, style })) {
     try {
-      return await generateAgentMediaVideo({ script: safeScript, hook, niche, style });
+      const estimatedCost = Number(process.env.AGENT_MEDIA_RENDER_COST_USD || 0.35);
+      assertSpendAllowed(estimatedCost);
+      const videoUrl = await generateAgentMediaVideo({ script: safeScript, hook, niche, style });
+      recordRenderSpend({ source: "agentmedia", estimatedCost, videoPath: videoUrl });
+      return videoUrl;
     } catch (error) {
       console.error(`[AgentMedia] Failed: ${error.message}`);
       if (process.env.AGENT_MEDIA_REQUIRED === "true") throw error;
@@ -234,6 +239,7 @@ export async function generateVideo({ script, hook, niche = "", style = "dark", 
 
     await encodeVideo({ framePaths, audioPath, videoPath, duration, durations, subtitlePath });
     const validation = await assertRenderableVideo(videoPath, { minDuration: 8, requireAudio: true, requireVertical: true });
+    recordRenderSpend({ source: "local", estimatedCost: Number(process.env.LOCAL_RENDER_COST_USD || 0.02), videoPath });
     console.log(`[VideoGen] OK ${videoPath} (${validation.width}x${validation.height}, ${validation.duration.toFixed(1)}s)`);
     return videoPath;
   } finally {
