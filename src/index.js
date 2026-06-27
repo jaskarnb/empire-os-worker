@@ -10,8 +10,13 @@ import { getChannels, schedulePost } from "./tools/postiz.js";
 import { assertPolicySafePost } from "./tools/policyGuard.js";
 import { assertContentQuality, scorePostQuality } from "./agents/contentQuality.js";
 import { runNicheScout } from "./agents/nicheScout.js";
+import { listAgents, agentsByTeam } from "./agents/agentRegistry.js";
+import { listSquads } from "./agents/agentSquads.js";
+import { spawnAgentTask, agentSpawnerStatus } from "./agents/agentSpawner.js";
+import { getAgentMemory, getMemoryStatus, getSharedMemory } from "./agents/agentMemory.js";
 import { renderOpsDashboard } from "./tools/opsDashboard.js";
 import { readLastOpsReport, readRecentIncidents } from "./tools/opsIncidents.js";
+import { isSlackConfigured, notifySlack } from "./tools/slackNotify.js";
 import {
   getAnalyticsSnapshots,
   getAutomationControl,
@@ -45,6 +50,15 @@ function sendVideo(res, filePath) {
     "Cache-Control": "no-store",
   });
   fs.createReadStream(filePath).pipe(res);
+}
+
+async function safeSlack(payload) {
+  try {
+    return await notifySlack(payload);
+  } catch (error) {
+    console.error("[Slack] Notification failed:", error.message);
+    return { status: "error", error: error.message };
+  }
 }
 
 function latestVideoPath() {
@@ -92,6 +106,73 @@ async function readJsonBody(req) {
   return body ? JSON.parse(body) : {};
 }
 
+const DASHBOARD_SQUAD_IDS = {
+  "horror-video-production": "horror",
+  "kids-video-production": "kids",
+  "brainrot-video-production": "brainrot",
+  "niche-discovery": "niche",
+  "reference-research": "reference",
+  publishing: "publishing",
+  "analytics-feedback": "analytics",
+  "ops-safety": "ops",
+  monetization: "monetization",
+};
+
+function memoryForSquad(squad) {
+  const agentMemories = squad.agents.flatMap((agentId) => getAgentMemory(agentId, 50));
+  return agentMemories
+    .sort((a, b) => Date.parse(b.ts || 0) - Date.parse(a.ts || 0));
+}
+
+function dashboardSquads() {
+  return listSquads().map((squad) => {
+    const memories = memoryForSquad(squad);
+    const lastAssignment = memories.find((item) => item.type === "assignment") || memories[0] || null;
+    return {
+      id: DASHBOARD_SQUAD_IDS[squad.id] || squad.id,
+      sourceId: squad.id,
+      name: squad.name,
+      lastTask: lastAssignment?.content || null,
+      memoryCount: memories.length,
+      agentCount: squad.agents.length,
+      canSpawnSubagents: true,
+      agents: squad.agents,
+    };
+  });
+}
+
+function agentRecommendations() {
+  const shared = getSharedMemory(100);
+  const spawned = shared.filter((item) => item.type === "task-spawned").slice(0, 5);
+  const recommendations = spawned.map((item) => item.content);
+  if (!recommendations.length) {
+    recommendations.push(
+      "Start with one horror test: backyard or dark hallway found-footage clip.",
+      "Use Higgsfield only, then let Quality Gate block anything weak or static.",
+      "After the first post, compare retention and repeat the strongest hook pattern.",
+    );
+  }
+  return recommendations;
+}
+
+function dashboardAgentStatus() {
+  const spawner = agentSpawnerStatus();
+  const memory = getMemoryStatus();
+  const shared = getSharedMemory(100);
+  const activeCount = shared.filter((item) => item.type === "task-spawned").length;
+  return {
+    status: "ok",
+    activeCount,
+    spawnerStatus: spawner.canSpawn ? "active" : "idle",
+    memoryStatus: memory.localMemoryDir ? "online" : "offline",
+    spawner,
+    memory,
+    agents: listAgents(),
+    teams: agentsByTeam(),
+    squads: dashboardSquads(),
+  };
+}
+
 // HTTP server: /health, /standup, /ops/status, /ops/check, /ops/dashboard
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
@@ -116,6 +197,10 @@ const server = http.createServer(async (req, res) => {
       spend: getSpendState(),
       scheduledPosts: getScheduledPosts(10),
       analytics: getAnalyticsSnapshots(5),
+      slack: {
+        configured: isSlackConfigured(),
+        enabled: process.env.SLACK_NOTIFICATIONS_ENABLED === "true",
+      },
     });
     return;
   }
@@ -152,6 +237,31 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname === "/ops/niches") {
     sendJson(res, 200, runNicheScout());
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/ops/agents") {
+    sendJson(res, 200, dashboardAgentStatus());
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/ops/agent-memory") {
+    sendJson(res, 200, {
+      status: "ok",
+      recommendations: agentRecommendations(),
+      memory: getMemoryStatus(),
+      shared: getSharedMemory(Number(url.searchParams.get("limit") || 50)),
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/ops/spawn-agent-task") {
+    try {
+      const payload = await readJsonBody(req);
+      sendJson(res, 200, spawnAgentTask(payload));
+    } catch (error) {
+      sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
+    }
     return;
   }
 
@@ -205,6 +315,21 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/ops/slack-test") {
+    const result = await safeSlack({
+      title: "Slack test",
+      level: "success",
+      message: "Empire OS can send notifications to Slack.",
+      fields: [
+        { label: "Worker", value: process.env.PUBLIC_WORKER_URL || "local" },
+        { label: "Time", value: new Date().toISOString() },
+      ],
+      url: `${process.env.PUBLIC_WORKER_URL || ""}/ops/dashboard`,
+    });
+    sendJson(res, result.status === "sent" ? 200 : 503, { status: result.status === "sent" ? "pass" : "fail", slack: result });
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/ops/verify") {
     try {
       const report = await verifyAutomationReady({ requireVideoInventory: url.searchParams.get("requireVideo") === "true" });
@@ -234,10 +359,30 @@ const server = http.createServer(async (req, res) => {
         style: payload.style || "dark",
         hook: payload.hook || "This simple automation saves hours",
         script: payload.script || "This simple automation saves hours every week. First, write down the task you repeat the most. Next, turn it into a checklist. Then let your tools handle the first draft while you review the final result. The win is not replacing your judgment. The win is removing the boring steps so you can focus on decisions that matter.",
+        allowLocalFallback: payload.allowLocalDebug === true,
       });
       const verification = await verifyMediaSource(video);
+      await safeSlack({
+        title: verification.status === "fail" ? "Video test failed quality gate" : "Video test generated",
+        level: verification.status === "fail" ? "warning" : "success",
+        message: verification.status === "fail"
+          ? "A generated video did not pass verification, so it should not be posted."
+          : "A Higgsfield video test generated and passed media verification.",
+        fields: [
+          { label: "Niche", value: payload.niche || "AI productivity tools and automation for beginners" },
+          { label: "Style", value: payload.style || "dark" },
+          { label: "Video", value: video },
+        ],
+        url: `${process.env.PUBLIC_WORKER_URL || ""}/ops/latest-video-page`,
+      });
       sendJson(res, verification.status === "fail" ? 503 : 200, { status: verification.status, video, verification });
     } catch (error) {
+      await safeSlack({
+        title: "Video test crashed",
+        level: "urgent",
+        message: error.message,
+        url: `${process.env.PUBLIC_WORKER_URL || ""}/ops/dashboard`,
+      });
       sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
     }
     return;
@@ -264,8 +409,25 @@ const server = http.createServer(async (req, res) => {
         requireMedia: true,
         content: payload.content || "Ops test: verified Empire OS video pipeline and Postiz scheduling. This is a scheduled test post.",
       });
+      await safeSlack({
+        title: "Postiz test scheduled",
+        level: "success",
+        message: "Empire OS successfully scheduled a verified test post through Postiz.",
+        fields: [
+          { label: "Integration", value: integrationId },
+          { label: "Scheduled for", value: scheduleAt },
+          { label: "Video", value: videoPath },
+        ],
+        url: `${process.env.PUBLIC_WORKER_URL || ""}/ops/dashboard`,
+      });
       sendJson(res, 200, { status: "pass", integrationId, scheduledFor: scheduleAt, videoPath, verification, postiz: result });
     } catch (error) {
+      await safeSlack({
+        title: "Postiz test failed",
+        level: "urgent",
+        message: error.message,
+        url: `${process.env.PUBLIC_WORKER_URL || ""}/ops/dashboard`,
+      });
       sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
     }
     return;
@@ -286,6 +448,16 @@ const server = http.createServer(async (req, res) => {
       const videoPath = await generateVideo({ script: post.script || post.caption, hook: post.hook, niche, style: payload.style || "dark" });
       const verification = await verifyMediaSource(videoPath);
       if (verification.status === "fail") {
+        await safeSlack({
+          title: "E2E stopped at video quality gate",
+          level: "warning",
+          message: "The post was not scheduled because the generated video failed verification.",
+          fields: [
+            { label: "Niche", value: niche },
+            { label: "Video", value: videoPath },
+          ],
+          url: `${process.env.PUBLIC_WORKER_URL || ""}/ops/dashboard`,
+        });
         sendJson(res, 503, { status: "fail", step: "video-verification", post, videoPath, verification });
         return;
       }
@@ -298,8 +470,26 @@ const server = http.createServer(async (req, res) => {
         content: post.caption || post.script,
       });
       recordScheduledPost({ title: post.title, channelName, integrationId, scheduledFor: scheduleAt, postiz, videoPath, niche });
+      await safeSlack({
+        title: "E2E post scheduled",
+        level: "success",
+        message: "Empire OS completed idea, policy, quality, Higgsfield video, verification, and Postiz scheduling.",
+        fields: [
+          { label: "Title", value: post.title },
+          { label: "Channel", value: channelName },
+          { label: "Niche", value: niche },
+          { label: "Scheduled for", value: scheduleAt },
+        ],
+        url: `${process.env.PUBLIC_WORKER_URL || ""}/ops/dashboard`,
+      });
       sendJson(res, 200, { status: "pass", channelName, integrationId, niche, scheduledFor: scheduleAt, post, quality, videoPath, verification, postiz });
     } catch (error) {
+      await safeSlack({
+        title: "E2E test failed",
+        level: "urgent",
+        message: error.message,
+        url: `${process.env.PUBLIC_WORKER_URL || ""}/ops/dashboard`,
+      });
       sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
     }
     return;

@@ -3,7 +3,7 @@ import { promisify } from "util";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { generateAgentMediaVideo, shouldUseAgentMedia } from "./agentMedia.js";
+import { generateHiggsfieldVideo, isHiggsfieldConfigured } from "./higgsfield.js";
 import { assertRenderableVideo } from "./renderGuard.js";
 import { assertSpendAllowed, recordRenderSpend } from "./opsState.js";
 
@@ -245,25 +245,12 @@ async function encodeVideo({ framePaths, audioPath, videoPath, duration, duratio
   await execFileAsync("ffmpeg", args, { timeout: 180_000, maxBuffer: 20 * 1024 * 1024 });
 }
 
-export async function generateVideo({ script, hook, niche = "", style = "auto", voice }) {
-  const safeScript = cleanText(script || hook, 1200);
-  if (!safeScript) throw new Error("No script text supplied");
-  const resolvedStyle = resolveStyle({ niche, style });
+function allowLocalDebug(allowLocalFallback = false) {
+  return allowLocalFallback || process.env.HIGGSFIELD_ALLOW_LOCAL_DEBUG === "true";
+}
 
-  if (shouldUseAgentMedia({ niche, style: resolvedStyle })) {
-    try {
-      const estimatedCost = Number(process.env.AGENT_MEDIA_RENDER_COST_USD || 0.35);
-      assertSpendAllowed(estimatedCost);
-      const videoUrl = await generateAgentMediaVideo({ script: safeScript, hook, niche, style: resolvedStyle });
-      recordRenderSpend({ source: "agentmedia", estimatedCost, videoPath: videoUrl });
-      return videoUrl;
-    } catch (error) {
-      console.error(`[AgentMedia] Failed: ${error.message}`);
-      if (process.env.AGENT_MEDIA_REQUIRED === "true") throw error;
-      console.warn("[AgentMedia] Falling back to local renderer.");
-    }
-  }
-
+async function renderLocalDebugVideo({ safeScript, hook, niche, resolvedStyle, voice }) {
+  console.warn("[VideoGen] Using local debug renderer. This path is not allowed for production posting.");
   const videoDir = process.env.VIDEO_DIR || "./output/video";
   const audioDir = process.env.AUDIO_DIR || "./output/audio";
 
@@ -293,7 +280,7 @@ export async function generateVideo({ script, hook, niche = "", style = "auto", 
 
     await encodeVideo({ framePaths, audioPath, videoPath, duration, durations, subtitlePath, style: resolvedStyle });
     const validation = await assertRenderableVideo(videoPath, { minDuration: 8, requireAudio: true, requireVertical: true });
-    recordRenderSpend({ source: "local", estimatedCost: Number(process.env.LOCAL_RENDER_COST_USD || 0.02), videoPath });
+    recordRenderSpend({ source: "local-debug", estimatedCost: Number(process.env.LOCAL_RENDER_COST_USD || 0.02), videoPath });
     console.log(`[VideoGen] OK ${videoPath} (${validation.width}x${validation.height}, ${validation.duration.toFixed(1)}s)`);
     return videoPath;
   } finally {
@@ -301,4 +288,24 @@ export async function generateVideo({ script, hook, niche = "", style = "auto", 
       try { fs.unlinkSync(file); } catch {}
     }
   }
+}
+
+export async function generateVideo({ script, hook, niche = "", style = "auto", voice, allowLocalFallback = false } = {}) {
+  const safeScript = cleanText(script || hook, 1200);
+  if (!safeScript) throw new Error("No script text supplied");
+  const resolvedStyle = resolveStyle({ niche, style });
+
+  if (isHiggsfieldConfigured()) {
+    const estimatedCost = Number(process.env.HIGGSFIELD_RENDER_COST_USD || 0.35);
+    assertSpendAllowed(estimatedCost);
+    const videoUrl = await generateHiggsfieldVideo({ script: safeScript, hook, niche, style: resolvedStyle });
+    recordRenderSpend({ source: "higgsfield", estimatedCost, videoPath: videoUrl });
+    return videoUrl;
+  }
+
+  if (allowLocalDebug(allowLocalFallback)) {
+    return renderLocalDebugVideo({ safeScript, hook, niche, resolvedStyle, voice });
+  }
+
+  throw new Error("Higgsfield is required for production video generation. Configure HIGGSFIELD_ENABLED=true and Higgsfield CLI auth, or run with allowLocalFallback=true for debug only.");
 }

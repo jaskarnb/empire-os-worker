@@ -25,7 +25,7 @@ jobs:
           node --check src/tools/renderGuard.js
           node --check src/tools/videoGen.js
           node --check src/tools/postiz.js
-          node --check src/tools/agentMedia.js
+          node --check src/tools/higgsfield.js
           node --check src/tools/opsIncidents.js
           node --check src/tools/opsDashboard.js
           node --check src/tools/policyGuard.js

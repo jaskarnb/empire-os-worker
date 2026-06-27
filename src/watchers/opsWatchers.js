@@ -3,6 +3,7 @@ import path from "path";
 import { getChannels, getRecentPosts } from "../tools/postiz.js";
 import { makeIncident, readRecentIncidents, recordIncident, saveLastOpsReport } from "../tools/opsIncidents.js";
 import { getScheduledPosts, getSpendState, recordAnalyticsSnapshot } from "../tools/opsState.js";
+import { notifyOpsReport } from "../tools/slackNotify.js";
 
 const WORKER_HEALTH_URL = process.env.WORKER_HEALTH_URL || process.env.PUBLIC_WORKER_URL || "https://empire-os-worker-production.up.railway.app/health";
 const POSTIZ_WEB_URL = process.env.POSTIZ_WEB_URL || "";
@@ -272,7 +273,7 @@ async function checkGitHub() {
 function checkSecrets() {
   const agent = "Secrets Watcher";
   const required = ["ANTHROPIC_API_KEY", "POSTIZ_API_KEY"];
-  const recommended = ["AGENT_MEDIA_API_KEY"];
+  const recommended = ["HIGGSFIELD_CLI_PATH"];
   const missingRequired = required.filter((name) => !process.env[name]);
   const missingRecommended = recommended.filter((name) => !process.env[name]);
 
@@ -286,37 +287,29 @@ function checkSecrets() {
       recommendedAction: "Add missing environment variables in Railway before running automation",
     });
   }
-  if (process.env.AGENT_MEDIA_ENABLED === "true" && missingRecommended.length) {
-    return fail({
-      agent,
-      severity: "P1",
-      service: "environment",
-      problem: "AgentMedia is enabled but its API key is missing",
-      evidence: missingRecommended.map((name) => `${name}=missing`),
-      recommendedAction: "Add AGENT_MEDIA_API_KEY or disable AGENT_MEDIA_ENABLED",
-    });
-  }
   return ok(agent, { requiredPresent: required.length, recommendedMissing: missingRecommended });
 }
 
-function checkAgentMedia() {
-  const agent = "AgentMedia Watcher";
-  const enabled = process.env.AGENT_MEDIA_ENABLED === "true";
-  const hasKey = Boolean(process.env.AGENT_MEDIA_API_KEY);
-  if (enabled && !hasKey) {
+function checkHiggsfield() {
+  const agent = "Higgsfield Watcher";
+  const enabled = process.env.HIGGSFIELD_ENABLED === "true";
+  const cliPath = process.env.HIGGSFIELD_CLI_PATH || "higgsfield";
+  if (!enabled) {
     return fail({
       agent,
       severity: "P1",
-      service: "agentmedia",
-      problem: "AgentMedia is enabled but no API key is configured",
-      evidence: ["AGENT_MEDIA_ENABLED=true", "AGENT_MEDIA_API_KEY=missing"],
-      recommendedAction: "Add AGENT_MEDIA_API_KEY in Railway or disable AgentMedia",
+      service: "higgsfield",
+      problem: "Higgsfield is not enabled, so production video posting is blocked",
+      evidence: ["HIGGSFIELD_ENABLED is not true"],
+      recommendedAction: "Enable Higgsfield after CLI/MCP auth is ready, or keep automation paused until setup is complete",
     });
   }
-  if (!enabled) {
-    return notice(agent, { enabled, hasKey, note: "AgentMedia is not enabled; local renderer is the fallback" });
-  }
-  return ok(agent, { enabled, hasKey, mode: process.env.AGENT_MEDIA_MODE || "ugc-only" });
+  return ok(agent, {
+    enabled,
+    cliPath,
+    model: process.env.HIGGSFIELD_VIDEO_MODEL || "seedance_2_0",
+    mode: "production-required",
+  });
 }
 
 function checkRenderOutput() {
@@ -354,13 +347,13 @@ function checkCosts() {
   const spend = getSpendState();
   const dailyBudget = spend.dailyBudget;
   const estimatedSpend = spend.estimatedSpend;
-  if (process.env.AGENT_MEDIA_ENABLED === "true" && dailyBudget <= 0) {
+  if (process.env.HIGGSFIELD_ENABLED === "true" && dailyBudget <= 0) {
     return fail({
       agent,
       severity: "P1",
       service: "costs",
       problem: "Paid video generation is enabled without a daily spend limit",
-      evidence: ["AGENT_MEDIA_ENABLED=true", "DAILY_SPEND_LIMIT_USD=missing"],
+      evidence: ["HIGGSFIELD_ENABLED=true", "DAILY_SPEND_LIMIT_USD=missing"],
       recommendedAction: "Set DAILY_SPEND_LIMIT_USD before enabling automatic paid posting",
     });
   }
@@ -408,7 +401,7 @@ export async function runOpsWatchers() {
   const startedAt = new Date().toISOString();
   const checks = [
     checkSecrets(),
-    checkAgentMedia(),
+    checkHiggsfield(),
     checkRenderOutput(),
     checkCosts(),
     await checkRailwayHealth(),
@@ -420,11 +413,17 @@ export async function runOpsWatchers() {
     await checkGitHub(),
   ];
 
-  return saveLastOpsReport({
+  const report = saveLastOpsReport({
     status: overallStatus(checks),
     startedAt,
     finishedAt: new Date().toISOString(),
     checks,
     recentIncidents: readRecentIncidents(20),
   });
+  try {
+    await notifyOpsReport(report);
+  } catch (error) {
+    console.error("[Slack] Ops notification failed:", error.message);
+  }
+  return report;
 }
