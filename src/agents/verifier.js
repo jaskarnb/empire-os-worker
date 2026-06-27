@@ -36,14 +36,15 @@ export async function verifyPostizReady() {
   }
 }
 
-export async function verifyAgentMediaReady() {
-  if (!envFlag("AGENT_MEDIA_ENABLED")) {
-    return notice("agentmedia-ready", { enabled: false, note: "AGENT_MEDIA_ENABLED is not true" });
+export async function verifyHiggsfieldReady() {
+  if (!envFlag("HIGGSFIELD_ENABLED")) {
+    return fail("higgsfield-ready", "HIGGSFIELD_ENABLED is not true; production posting is blocked until Higgsfield is connected");
   }
-  if (!process.env.AGENT_MEDIA_API_KEY) {
-    return fail("agentmedia-ready", "AGENT_MEDIA_ENABLED is true but AGENT_MEDIA_API_KEY is missing");
-  }
-  return pass("agentmedia-ready", { enabled: true });
+  return pass("higgsfield-ready", {
+    enabled: true,
+    cliPath: process.env.HIGGSFIELD_CLI_PATH || "higgsfield",
+    model: process.env.HIGGSFIELD_VIDEO_MODEL || "seedance_2_0",
+  });
 }
 
 export async function verifyVideoArtifact(filePath) {
@@ -96,11 +97,13 @@ export function verifyVideoDirectory() {
 export async function verifyAutomationReady({ requireVideoInventory = false } = {}) {
   const checks = [
     await verifyPostizReady(),
-    await verifyAgentMediaReady(),
-    verifyVideoDirectory(),
+    await verifyHiggsfieldReady(),
   ];
 
-  if (requireVideoInventory && checks.find((check) => check.name === "video-directory")?.status !== "pass") {
+  const inventory = verifyVideoDirectory();
+  if (requireVideoInventory) checks.push(inventory);
+
+  if (requireVideoInventory && inventory.status !== "pass") {
     checks.push(fail("automation-ready", "No verified MP4 inventory exists yet"));
   }
 
