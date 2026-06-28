@@ -25,12 +25,22 @@ function cleanText(value, maxLength = 1800) {
     .slice(0, maxLength);
 }
 
+function voiceDirection(style) {
+  if (style === "horror") return "Voice/sound direction: low suspense voice or minimal whisper, slow pacing, eerie silence, tense sound design, sharp scare hit, no goofy delivery.";
+  if (style === "kids") return "Voice/sound direction: cheerful friendly voice, simple words, bright music, warm pacing, never scary or harsh.";
+  if (style === "brainrot") return "Voice/sound direction: fast energetic meme delivery, punchy captions, quick sound hits, funny chaotic rhythm, no dead air.";
+  return "Voice/sound direction: clear creator narration, confident pacing, clean social-video sound design.";
+}
+
 function stylePrompt({ script, hook, niche, style }) {
   const base = [
     "Create a vertical 9:16 short-form video with real cinematic motion.",
     "It must be a generated video, not a slideshow and not a static image.",
+    "The video must follow the script beat-by-beat: each major sentence should have a matching visual moment.",
+    "Keep visual continuity so the scene feels like one coherent story, not random unrelated clips.",
     "Use strong pacing, visual continuity, and retention-focused camera movement.",
-    "Make the short feel slightly longer and more complete: setup, escalation, payoff, and a final after-beat.",
+    "Make the short feel complete: setup, escalation, payoff, and a final after-beat.",
+    "Prioritize high-quality lighting, clear subjects, stable composition, smooth motion, and polished social-ready framing.",
     "No copyrighted characters, no copied creator footage, no logos.",
   ];
 
@@ -38,32 +48,37 @@ function stylePrompt({ script, hook, niche, style }) {
     horror: [
       "Realistic caught-on-camera footage.",
       "Handheld phone camera moving through a dark hallway or backyard at night.",
-      "Build dread for several seconds with small visual clues, distant movement, and uneasy silence.",
-      "Include one clear jump scare near the final third: a sudden motion, fast reveal, light flicker, or figure appearing close to camera.",
-      "After the jump scare, hold a short unsettling aftermath beat so viewers process what happened.",
+      "Build dread with small visual clues, distant movement, uneasy silence, and a clear camera path that matches the script.",
+      "Include one clear jump scare near the final third for short clips, or a slower scare payoff for longer story formats.",
+      "After the scare, hold a short unsettling aftermath beat so viewers process what happened.",
       "Cinematic tension build. Found footage aesthetic. No CGI monsters.",
       "No graphic gore. Scary atmosphere, rising dread, clear payoff.",
       "Genre: horror. Sound on. Sharp scare beat, but keep it platform-safe.",
     ],
     brainrot: [
       "Style: fast chaotic viral meme video with exaggerated motion and quick visual punchlines.",
+      "Every visual joke must connect to the script, with readable punchy captions and quick transitions.",
       "Bright, high-energy, funny, safe for teen audiences.",
     ],
     kids: [
       "Style: cheerful, colorful, safe kids video with friendly motion and simple happy visuals.",
+      "Every scene should clearly show what the script says, using cute characters, bright colors, and easy-to-understand actions.",
       "No scary images, no danger, no inappropriate content.",
     ],
     dark: [
       "Style: polished social media explainer with cinematic b-roll, smooth motion, and bold visual hooks.",
+      "Use visuals that directly support each sentence, with clean captions and no random filler shots.",
     ],
   };
 
   return cleanText([
     ...base,
     ...(styleLines[style] || styleLines.dark),
+    voiceDirection(style),
     `Niche: ${cleanText(niche, 220)}`,
     `Opening hook: ${cleanText(hook, 120)}`,
     `Voiceover/script: ${cleanText(script, 1400)}`,
+    "Quality requirement: premium-looking video, coherent scene progression, script-matched visuals, appropriate voice/sound, readable captions if captions are present, and no random words or disconnected visuals.",
     "Output: vertical, social-ready, with enough motion and story progression to hold attention through the full clip.",
   ].join("\n"));
 }
