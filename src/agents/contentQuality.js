@@ -56,19 +56,20 @@ function coherenceScore(script) {
   const sentenceList = sentences(text);
   const sentenceWordCounts = sentenceList.map((sentence) => words(sentence).length);
   const completeSentences = sentenceWordCounts.filter((count) => count >= 5 && count <= 28).length;
-  const transitionHits = hasAny(text, [/\bthen\b/i, /\bbut\b/i, /\bso\b/i, /\bbecause\b/i, /\bwhen\b/i, /\bafter\b/i, /\bsuddenly\b/i, /\bfinally\b/i, /\bnext\b/i]);
-  const subjectActionFlow = hasAny(text, [/\b(the|a|an|this|that|he|she|they|we|you|it)\s+\w+(s|ed|ing)?\b/i]) && hasAny(text, [/\b(turns?|looks?|finds?|sees?|runs?|starts?|stops?|opens?|moves?|jumps?|laughs?|learns?|shows?|reveals?|falls?|hears?|whispers?)\b/i]);
+  const transitionHits = hasAny(text, [/\bthen\b/i, /\bbut\b/i, /\bso\b/i, /\bbecause\b/i, /\bwhen\b/i, /\bafter\b/i, /\bsuddenly\b/i, /\bfinally\b/i, /\bnext\b/i, /\bby the end\b/i]);
+  const subjectFlow = hasAny(text, [/\b(the|a|an|this|that|he|she|they|we|you|it|berry|friend|friends|character|kid|camera|light|figure|monster|player)\s+\w+/i]);
+  const actionFlow = hasAny(text, [/\b(try|tries|tried|carry|carries|carried|roll|rolls|rolled|run|runs|ran|hold|holds|held|share|shares|shared|laugh|laughs|laughed|learn|learns|learned|turn|turns|turned|look|looks|looked|find|finds|found|see|sees|saw|start|starts|started|stop|stops|stopped|open|opens|opened|move|moves|moved|jump|jumps|jumped|show|shows|showed|reveal|reveals|revealed|fall|falls|fell|hear|hears|heard|whisper|whispers|whispered|dance|dances|danced|build|builds|built|play|plays|played|glow|glows|glowed|change|changes|changed|appear|appears|appeared|vanish|vanishes|vanished)\b/i]);
   const hasFlow = sentenceList.length >= 3 && completeSentences >= Math.min(3, sentenceList.length);
   const signals = gibberishSignals(text);
-  if (hasFlow && transitionHits && subjectActionFlow && !signals.isGibberish) return 1;
-  if (hasFlow && subjectActionFlow && !signals.isGibberish) return 0.75;
+  if (hasFlow && transitionHits && subjectFlow && actionFlow && !signals.isGibberish) return 1;
+  if (hasFlow && subjectFlow && actionFlow && !signals.isGibberish) return 0.75;
   if (sentenceList.length >= 2 && !signals.isGibberish) return 0.45;
   return 0.15;
 }
 
 function visualFlowScore(script) {
   const text = String(script || "");
-  const beatWords = [/\bfirst\b/i, /\bthen\b/i, /\bnext\b/i, /\bafter\b/i, /\bfinally\b/i, /\bsuddenly\b/i, /\bturns?\b/i, /\bshows?\b/i, /\breveals?\b/i, /\bwatch\b/i, /\blook\b/i, /\bcamera\b/i, /\blight\b/i, /\bcharacter\b/i, /\bscene\b/i];
+  const beatWords = [/\bfirst\b/i, /\bthen\b/i, /\bnext\b/i, /\bafter\b/i, /\bfinally\b/i, /\bsuddenly\b/i, /\bturns?\b/i, /\bshows?\b/i, /\breveals?\b/i, /\bwatch\b/i, /\blook\b/i, /\bcamera\b/i, /\blight\b/i, /\bcharacter\b/i, /\bscene\b/i, /\bby the end\b/i];
   return hasAny(text, beatWords) ? 1 : 0.45;
 }
 
@@ -91,8 +92,8 @@ export function scorePostQuality({ post = {}, niche = "", audience = "general" }
     scriptLength: scoreRange(scriptWords, scriptMin, scriptMax),
     coherence: coherenceScore(script),
     visualFlow: visualFlowScore(script),
-    specificity: hasAny(allText, [/\b\d+(\.\d+)?\b/, /\bminute|hour|step|tool|example|today|weekly|daily|camera|door|yard|screen|game|color|character\b/i]) ? 1 : 0.45,
-    retention: hasAny(allText, [/\bhere'?s|but|what if|the thing is|watch|start|stop|mistake|secret|simple|suddenly|wait|look|listen\b/i]) ? 1 : 0.45,
+    specificity: hasAny(allText, [/\b\d+(\.\d+)?\b/, /\bminute|hour|step|tool|example|today|weekly|daily|camera|door|yard|screen|game|color|character|cookie|friend|sound\b/i]) ? 1 : 0.45,
+    retention: hasAny(allText, [/\bhere'?s|but|what if|the thing is|watch|start|stop|mistake|secret|simple|suddenly|wait|look|listen|giant|rainbow|scary|funny\b/i]) ? 1 : 0.45,
     nicheFit: niche && allText.toLowerCase().includes(String(niche).split(/\W+/).find((part) => part.length > 3)?.toLowerCase() || "__missing__") ? 1 : 0.65,
     caption: /#[A-Za-z0-9_]+/.test(caption) && caption.length >= 40 ? 1 : 0.45,
   };
