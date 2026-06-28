@@ -30,17 +30,20 @@ function stylePrompt({ script, hook, niche, style }) {
     "Create a vertical 9:16 short-form video with real cinematic motion.",
     "It must be a generated video, not a slideshow and not a static image.",
     "Use strong pacing, visual continuity, and retention-focused camera movement.",
+    "Make the short feel slightly longer and more complete: setup, escalation, payoff, and a final after-beat.",
     "No copyrighted characters, no copied creator footage, no logos.",
   ];
 
   const styleLines = {
     horror: [
       "Realistic caught-on-camera footage.",
-      "Handheld phone camera moving through a dark hallway at night.",
-      "Shaky motion, motion blur. Person hears something, turns corner, sudden horrifying reveal.",
+      "Handheld phone camera moving through a dark hallway or backyard at night.",
+      "Build dread for several seconds with small visual clues, distant movement, and uneasy silence.",
+      "Include one clear jump scare near the final third: a sudden motion, fast reveal, light flicker, or figure appearing close to camera.",
+      "After the jump scare, hold a short unsettling aftermath beat so viewers process what happened.",
       "Cinematic tension build. Found footage aesthetic. No CGI monsters.",
       "No graphic gore. Scary atmosphere, rising dread, clear payoff.",
-      "Genre: horror. Sound on.",
+      "Genre: horror. Sound on. Sharp scare beat, but keep it platform-safe.",
     ],
     brainrot: [
       "Style: fast chaotic viral meme video with exaggerated motion and quick visual punchlines.",
@@ -61,7 +64,7 @@ function stylePrompt({ script, hook, niche, style }) {
     `Niche: ${cleanText(niche, 220)}`,
     `Opening hook: ${cleanText(hook, 120)}`,
     `Voiceover/script: ${cleanText(script, 1400)}`,
-    "Output: vertical, social-ready, with enough motion to hold attention.",
+    "Output: vertical, social-ready, with enough motion and story progression to hold attention through the full clip.",
   ].join("\n"));
 }
 
@@ -81,7 +84,7 @@ function modelParams(style, model) {
   return {
     aspectRatioFlag: envValue("HIGGSFIELD_ASPECT_RATIO_PARAM", "aspect_ratio"),
     aspectRatio: envValue("HIGGSFIELD_ASPECT_RATIO", "9:16"),
-    duration: envValue("HIGGSFIELD_DURATION", wanModel ? "5" : "12"),
+    duration: envValue("HIGGSFIELD_DURATION", wanModel ? "8" : "15"),
     genre: wanModel ? "" : envValue("HIGGSFIELD_GENRE", horror ? "horror" : ""),
     mode: wanModel ? "" : envValue("HIGGSFIELD_MODE", "pro"),
     sound: wanModel ? "" : envValue("HIGGSFIELD_SOUND", "on"),
