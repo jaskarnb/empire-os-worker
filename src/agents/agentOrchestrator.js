@@ -59,6 +59,14 @@ function formatMix(style) {
   return [{ id: "complete-short", targetLength: "15-35 seconds", cadence: "default", direction: "Motion-first short with hook, escalation, payoff, captions, and platform-native pacing." }];
 }
 
+function researchRule(style) {
+  const base = "Every content run must start by studying active creators in the same niche, extracting winning formats, hooks, pacing, sounds, captions, thumbnails/first frames, posting cadence, and comment signals. Use these as inspiration only; never copy footage, logos, exact captions, voiceovers, or creator identity.";
+  if (style === "horror") return `${base} For horror, compare short jump-scare clips against longer scary-story videos and choose a mix based on what is working now.`;
+  if (style === "kids") return `${base} For kids content, only use safe, age-appropriate, cheerful references and avoid scary or risky behavior.`;
+  if (style === "brainrot") return `${base} For brainrot, track meme velocity, pacing, caption style, and sound patterns while keeping content platform-safe.`;
+  return base;
+}
+
 function higgsfieldPromptTemplate({ niche, style, referenceAnalysis }) {
   const visual = referenceAnalysis.visualLanguage?.join("; ") || "cinematic vertical social video";
   const pacing = referenceAnalysis.pacingNotes?.join("; ") || "hook fast, keep motion throughout, clear payoff";
@@ -85,34 +93,47 @@ Do not copy creator footage, logos, copyrighted characters, or exact wording fro
 function assignments({ niche, style, audience, referenceAnalysis, spend }) {
   const spendBlocked = spend.enforced && spend.remaining !== null && spend.remaining <= 0;
   const horrorFormatNote = style === "horror" ? " Rotate formats between short 8-20 second jump scares and 45-60 second narrated scary stories with captions and scary sound." : " Follow the same quality bar as horror: motion-first, entertaining, niche-matched sound/voice, not static caption posts.";
+  const researchNote = ` Required first step: study active creators and recent posts in ${niche}; identify what is working, then make similar-format original videos without copying protected assets or exact wording.`;
   return [
     {
+      agent: "trend-radar",
+      task: `Scan current platform trends, sounds, formats, and audience behavior for ${niche}.${researchNote}`,
+      output: "trendBrief, urgentOpportunities, trendRisk",
+      status: "required-first",
+    },
+    {
+      agent: "competitor-tracker",
+      task: `Track niche creators/pages and summarize repeatable winners: hooks, pacing, video length, captions, sounds, posting frequency, and comments.${researchNote}`,
+      output: "competitorBrief, winningFormats, postingPatterns, contentGaps",
+      status: "required-first",
+    },
+    {
       agent: "reference-analyst",
-      task: "Extract reusable patterns from the provided references and update the style notes." + horrorFormatNote,
+      task: "Extract reusable patterns from creator references and update the style notes. Focus on why viewers keep watching, not copying the source." + horrorFormatNote,
       output: "winningPatterns, pacingNotes, visualLanguage, captionStyle, doNotCopy",
-      status: referenceAnalysis.references.length ? "ready" : "waiting-for-references",
+      status: referenceAnalysis.references.length ? "ready" : "ready-needs-creator-research",
     },
     {
       agent: "content-strategist",
-      task: `Create original ${niche} video concepts that use the patterns without copying.${horrorFormatNote}`,
+      task: `Create original ${niche} video concepts from trend, competitor, and reference findings.${horrorFormatNote}`,
       output: "3 video concepts with hook, payoff, and caption angle",
-      status: "ready",
+      status: "after-research",
     },
     {
       agent: "hook-writer",
-      task: "Write retention-first hooks and script beats." + horrorFormatNote,
+      task: "Write retention-first hooks and script beats using the winning structures found by research, while changing topic, wording, and visuals enough to be original." + horrorFormatNote,
       output: "hook, scriptBeats, caption, hashtags",
-      status: "ready",
+      status: "after-research",
     },
     {
       agent: "higgsfield-director",
-      task: `Generate Higgsfield prompts for ${style} videos and keep them ${audience}-safe.${horrorFormatNote}`,
+      task: `Generate Higgsfield prompts for ${style} videos and keep them ${audience}-safe. Convert winning creator patterns into original scenes, camera moves, sounds, and pacing.${horrorFormatNote}`,
       output: "higgsfieldPrompt, modelSettings, negativePrompt",
-      status: spendBlocked ? "blocked-by-budget" : "ready",
+      status: spendBlocked ? "blocked-by-budget" : "after-script",
     },
     {
       agent: "quality-gate",
-      task: "Reject weak/static/unsafe videos before posting. Require real motion, readable captions when used, niche-matched sound, and no static image posts.",
+      task: "Reject weak/static/unsafe videos before posting. Require real motion, readable captions when used, niche-matched sound, and no static image posts. Also reject anything too close to a creator reference.",
       output: "pass/fail plus regeneration notes",
       status: "required",
     },
@@ -124,7 +145,7 @@ function assignments({ niche, style, audience, referenceAnalysis, spend }) {
     },
     {
       agent: "analytics-agent",
-      task: "Feed performance back into niche, format length, hook, sound, and scare/payoff choices.",
+      task: "Feed performance back into niche, creator research targets, format length, hook, sound, and scare/payoff choices.",
       output: "winnerPatterns, loserPatterns, nextTests",
       status: "after-publishing",
     },
@@ -171,6 +192,7 @@ export function createAgentBriefing({
     style: resolvedStyle,
     audience,
     productionRule: "Higgsfield only. If Higgsfield fails or quality fails, skip posting.",
+    researchRule: researchRule(resolvedStyle),
     formatMix: formatMix(resolvedStyle),
     voiceDirection: voiceDirection(resolvedStyle, audience),
     higgsfieldPromptTemplate: promptTemplate,
