@@ -67,6 +67,14 @@ function researchRule(style) {
   return base;
 }
 
+function postingTimeRule(style) {
+  const base = "Prioritize TikTok and Instagram Reels over YouTube Shorts while the channel mix is being tested. Schedule in the user's America/Indianapolis timezone. Start with 11:30 AM-1:30 PM and 6:30 PM-10:30 PM test windows, stagger posts at least 90 minutes apart per account, avoid dumping many posts at once, and let analytics replace these defaults after enough data.";
+  if (style === "horror") return `${base} Horror should favor evening and late-night windows first, especially 7:30 PM-11:30 PM, with short jump-scare clips and longer story videos mixed across separate slots.`;
+  if (style === "kids") return `${base} Kids-safe content should favor after-school and early evening windows, avoid late-night posting as the primary test slot.`;
+  if (style === "brainrot") return `${base} Brainrot can test after-school, evening, and late-night windows because teen/meme behavior may spike later.`;
+  return base;
+}
+
 function higgsfieldPromptTemplate({ niche, style, referenceAnalysis }) {
   const visual = referenceAnalysis.visualLanguage?.join("; ") || "cinematic vertical social video";
   const pacing = referenceAnalysis.pacingNotes?.join("; ") || "hook fast, keep motion throughout, clear payoff";
@@ -94,6 +102,7 @@ function assignments({ niche, style, audience, referenceAnalysis, spend }) {
   const spendBlocked = spend.enforced && spend.remaining !== null && spend.remaining <= 0;
   const horrorFormatNote = style === "horror" ? " Rotate formats between short 8-20 second jump scares and 45-60 second narrated scary stories with captions and scary sound." : " Follow the same quality bar as horror: motion-first, entertaining, niche-matched sound/voice, not static caption posts.";
   const researchNote = ` Required first step: study active creators and recent posts in ${niche}; identify what is working, then make similar-format original videos without copying protected assets or exact wording.`;
+  const timingNote = ` Posting timing rule: ${postingTimeRule(style)}`;
   return [
     {
       agent: "trend-radar",
@@ -138,14 +147,20 @@ function assignments({ niche, style, audience, referenceAnalysis, spend }) {
       status: "required",
     },
     {
+      agent: "schedule-optimizer",
+      task: `Choose the best TikTok/Instagram posting windows for each approved video, account, and niche.${timingNote}`,
+      output: "scheduleTimes, cadence, postingPriority",
+      status: "after-quality-pass-before-posting",
+    },
+    {
       agent: "posting-operator",
-      task: "Schedule only approved Higgsfield videos through Postiz.",
+      task: `Schedule only approved Higgsfield videos through Postiz at the schedule-optimizer's selected times.${timingNote}`,
       output: "postizResult and scheduled memory",
-      status: "after-quality-pass",
+      status: "after-schedule-optimizer",
     },
     {
       agent: "analytics-agent",
-      task: "Feed performance back into niche, creator research targets, format length, hook, sound, and scare/payoff choices.",
+      task: "Feed performance back into niche, creator research targets, format length, hook, sound, posting time, and scare/payoff choices.",
       output: "winnerPatterns, loserPatterns, nextTests",
       status: "after-publishing",
     },
@@ -193,6 +208,7 @@ export function createAgentBriefing({
     audience,
     productionRule: "Higgsfield only. If Higgsfield fails or quality fails, skip posting.",
     researchRule: researchRule(resolvedStyle),
+    postingTimeRule: postingTimeRule(resolvedStyle),
     formatMix: formatMix(resolvedStyle),
     voiceDirection: voiceDirection(resolvedStyle, audience),
     higgsfieldPromptTemplate: promptTemplate,
