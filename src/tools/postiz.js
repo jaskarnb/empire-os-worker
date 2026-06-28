@@ -66,6 +66,19 @@ async function readError(res) {
   return text.slice(0, 1200);
 }
 
+function unwrapPosts(data) {
+  if (Array.isArray(data)) return data;
+  return data.posts ?? data.items ?? data.data ?? data.results ?? [];
+}
+
+function postId(post) {
+  return post?.id || post?._id || post?.postId || post?.uuid;
+}
+
+function postDate(post) {
+  return post?.date || post?.scheduledAt || post?.scheduledFor || post?.publishDate || post?.createdAt || null;
+}
+
 let _channels = null;
 let _channelsFetched = 0;
 
@@ -87,10 +100,67 @@ export async function getRecentPosts(limit = 15) {
     const res = await fetch(postizUrl(`/posts?limit=${limit}`), { headers: headers() });
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : data.posts ?? data.items ?? [];
+    return unwrapPosts(data);
   } catch {
     return [];
   }
+}
+
+export async function listPostizPosts({ limit = 100 } = {}) {
+  if (!key()) throw new Error("POSTIZ_API_KEY not set");
+  const res = await fetch(postizUrl(`/posts?limit=${Number(limit) || 100}`), { headers: headers() });
+  if (!res.ok) throw new Error(`Postiz GET /posts ${res.status}: ${await readError(res)}`);
+  const data = await res.json();
+  return unwrapPosts(data);
+}
+
+export async function deletePostizPost(id) {
+  if (!key()) throw new Error("POSTIZ_API_KEY not set");
+  if (!id) throw new Error("Postiz delete requires post id");
+  const res = await fetch(postizUrl(`/posts/${encodeURIComponent(id)}`), { method: "DELETE", headers: headers() });
+  if (!res.ok) throw new Error(`Postiz DELETE /posts/${id} ${res.status}: ${await readError(res)}`);
+  try { return await res.json(); } catch { return { ok: true }; }
+}
+
+export async function clearUpcomingPostizPosts({ dryRun = true, limit = 100, hoursBack = 12 } = {}) {
+  const now = Date.now();
+  const cutoff = now - Number(hoursBack || 12) * 60 * 60 * 1000;
+  const posts = await listPostizPosts({ limit });
+  const candidates = posts.filter((post) => {
+    const id = postId(post);
+    if (!id) return false;
+    const rawDate = postDate(post);
+    const time = Date.parse(rawDate || "");
+    if (!Number.isFinite(time)) return true;
+    return time >= cutoff;
+  });
+
+  const deleted = [];
+  const failed = [];
+  if (!dryRun) {
+    for (const post of candidates) {
+      const id = postId(post);
+      try {
+        const result = await deletePostizPost(id);
+        deleted.push({ id, result });
+      } catch (error) {
+        failed.push({ id, error: error.message });
+      }
+    }
+  }
+
+  return {
+    dryRun,
+    totalPostsSeen: posts.length,
+    candidates: candidates.map((post) => ({
+      id: postId(post),
+      date: postDate(post),
+      status: post?.status || post?.type || null,
+      title: String(post?.title || post?.content || post?.text || post?.message || "").slice(0, 120),
+    })),
+    deleted,
+    failed,
+  };
 }
 
 export async function uploadMedia(filePath) {
