@@ -70,16 +70,22 @@ function pushParam(args, flagName, value) {
   args.push(`--${flagName}`, String(value));
 }
 
-function modelParams(style) {
+function envValue(name, fallback = "") {
+  return Object.prototype.hasOwnProperty.call(process.env, name) ? process.env[name] : fallback;
+}
+
+function modelParams(style, model) {
   const horror = style === "horror";
+  const wanModel = /^wan2_/i.test(model);
+
   return {
-    aspectRatioFlag: process.env.HIGGSFIELD_ASPECT_RATIO_PARAM || "aspect_ratio",
-    aspectRatio: process.env.HIGGSFIELD_ASPECT_RATIO || "9:16",
-    duration: process.env.HIGGSFIELD_DURATION || "12",
-    genre: process.env.HIGGSFIELD_GENRE || (horror ? "horror" : ""),
-    mode: process.env.HIGGSFIELD_MODE || "pro",
-    sound: process.env.HIGGSFIELD_SOUND || "on",
-    resolution: process.env.HIGGSFIELD_RESOLUTION || "",
+    aspectRatioFlag: envValue("HIGGSFIELD_ASPECT_RATIO_PARAM", "aspect_ratio"),
+    aspectRatio: envValue("HIGGSFIELD_ASPECT_RATIO", "9:16"),
+    duration: envValue("HIGGSFIELD_DURATION", wanModel ? "5" : "12"),
+    genre: wanModel ? "" : envValue("HIGGSFIELD_GENRE", horror ? "horror" : ""),
+    mode: wanModel ? "" : envValue("HIGGSFIELD_MODE", "pro"),
+    sound: wanModel ? "" : envValue("HIGGSFIELD_SOUND", "on"),
+    resolution: envValue("HIGGSFIELD_RESOLUTION", wanModel ? "720p" : ""),
   };
 }
 
@@ -113,11 +119,11 @@ function extractVideoUrl(output) {
 export async function generateHiggsfieldVideo({ script, hook, niche = "", style = "dark" }) {
   if (!enabled()) throw new Error("HIGGSFIELD_ENABLED is not true");
 
-  const model = process.env.HIGGSFIELD_VIDEO_MODEL || "cinematic_studio_video_v2";
+  const model = process.env.HIGGSFIELD_VIDEO_MODEL || "wan2_7";
   const timeout = process.env.HIGGSFIELD_WAIT_TIMEOUT || "20m";
   const interval = process.env.HIGGSFIELD_WAIT_INTERVAL || "5s";
   const prompt = stylePrompt({ script, hook, niche, style });
-  const params = modelParams(style);
+  const params = modelParams(style, model);
 
   const args = [
     "generate",
