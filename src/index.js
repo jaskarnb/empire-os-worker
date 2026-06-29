@@ -240,6 +240,23 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/ops/channels") {
+    try {
+      const channels = await getChannels();
+      sendJson(res, 200, {
+        status: "ok",
+        channels: channels.map((channel) => ({
+          id: channel?.id || channel?._id || channel?.integrationId || null,
+          name: channel?.name || channel?.username || channel?.identifier || null,
+          provider: channel?.provider || channel?.type || channel?.social || channel?.identifier || null,
+        })),
+      });
+    } catch (error) {
+      sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
+    }
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/ops/agents") {
     sendJson(res, 200, dashboardAgentStatus());
     return;
