@@ -35,7 +35,7 @@ function voiceDirection(style) {
 function stylePrompt({ script, hook, niche, style }) {
   const base = [
     "Create a vertical 9:16 short-form video with real cinematic motion.",
-    "Target runtime: at least 12 seconds and no more than 59 seconds.",
+    "Target runtime: at least 20 seconds and no more than 59 seconds.",
     "Do not make tiny preview clips; the video needs enough time for setup, movement, payoff, and a final beat.",
     "It must be a generated video, not a slideshow and not a static image.",
     "The video must follow the script beat-by-beat: each major sentence should have a matching visual moment.",
@@ -51,8 +51,8 @@ function stylePrompt({ script, hook, niche, style }) {
       "Realistic caught-on-camera footage.",
       "Handheld phone camera moving through a dark hallway or backyard at night.",
       "Build dread with small visual clues, distant movement, uneasy silence, and a clear camera path that matches the script.",
-      "For short horror, keep it 12-20 seconds with a strong jump scare and aftermath beat.",
-      "For story horror, use 35-59 seconds with narration, captions, escalation, and a stronger ending.",
+      "For short horror, keep it 20-30 seconds with a strong jump scare and aftermath beat.",
+      "For story horror, use 40-59 seconds with narration, captions, escalation, and a stronger ending.",
       "After the scare, hold a short unsettling aftermath beat so viewers process what happened.",
       "Cinematic tension build. Found footage aesthetic. No CGI monsters.",
       "No graphic gore. Scary atmosphere, rising dread, clear payoff.",
@@ -60,19 +60,19 @@ function stylePrompt({ script, hook, niche, style }) {
     ],
     brainrot: [
       "Style: fast chaotic viral meme video with exaggerated motion and quick visual punchlines.",
-      "Target 12-30 seconds unless the joke needs more setup; never feel cut off too early.",
+      "Target 20-35 seconds unless the joke needs more setup; never feel cut off too early.",
       "Every visual joke must connect to the script, with readable punchy captions and quick transitions.",
       "Bright, high-energy, funny, safe for teen audiences.",
     ],
     kids: [
       "Style: cheerful, colorful, safe kids video with friendly motion and simple happy visuals.",
-      "Target 12-35 seconds with a complete beginning, middle, and ending.",
+      "Target 20-40 seconds with a complete beginning, middle, and ending.",
       "Every scene should clearly show what the script says, using cute characters, bright colors, and easy-to-understand actions.",
       "No scary images, no danger, no inappropriate content.",
     ],
     dark: [
       "Style: polished social media explainer with cinematic b-roll, smooth motion, and bold visual hooks.",
-      "Target 12-45 seconds with clean pacing and no filler.",
+      "Target 20-45 seconds with clean pacing and no filler.",
       "Use visuals that directly support each sentence, with clean captions and no random filler shots.",
     ],
   };
@@ -85,7 +85,7 @@ function stylePrompt({ script, hook, niche, style }) {
     `Opening hook: ${cleanText(hook, 120)}`,
     `Voiceover/script: ${cleanText(script, 1400)}`,
     "Quality requirement: premium-looking video, coherent scene progression, script-matched visuals, appropriate voice/sound, readable captions if captions are present, and no random words or disconnected visuals.",
-    "Output: vertical, social-ready, 12-59 seconds, with enough motion and story progression to hold attention through the full clip.",
+    "Output: vertical, social-ready, 20-59 seconds, with enough motion and story progression to hold attention through the full clip.",
   ].join("\n"));
 }
 
@@ -105,7 +105,7 @@ function modelParams(style, model) {
   return {
     aspectRatioFlag: envValue("HIGGSFIELD_ASPECT_RATIO_PARAM", "aspect_ratio"),
     aspectRatio: envValue("HIGGSFIELD_ASPECT_RATIO", "9:16"),
-    duration: envValue("HIGGSFIELD_DURATION", "12"),
+    duration: envValue("HIGGSFIELD_DURATION", "20"),
     genre: wanModel ? "" : envValue("HIGGSFIELD_GENRE", horror ? "horror" : ""),
     mode: wanModel ? "" : envValue("HIGGSFIELD_MODE", "pro"),
     sound: wanModel ? "" : envValue("HIGGSFIELD_SOUND", "on"),
