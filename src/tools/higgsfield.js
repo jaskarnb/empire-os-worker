@@ -98,6 +98,12 @@ function envValue(name, fallback = "") {
   return Object.prototype.hasOwnProperty.call(process.env, name) ? process.env[name] : fallback;
 }
 
+function durationValue() {
+  const parsed = Number(envValue("HIGGSFIELD_DURATION", "20"));
+  if (!Number.isFinite(parsed)) return "20";
+  return String(Math.min(59, Math.max(20, Math.floor(parsed))));
+}
+
 function modelParams(style, model) {
   const horror = style === "horror";
   const wanModel = /^wan2_/i.test(model);
@@ -105,7 +111,7 @@ function modelParams(style, model) {
   return {
     aspectRatioFlag: envValue("HIGGSFIELD_ASPECT_RATIO_PARAM", "aspect_ratio"),
     aspectRatio: envValue("HIGGSFIELD_ASPECT_RATIO", "9:16"),
-    duration: envValue("HIGGSFIELD_DURATION", "20"),
+    duration: durationValue(),
     genre: wanModel ? "" : envValue("HIGGSFIELD_GENRE", horror ? "horror" : ""),
     mode: wanModel ? "" : envValue("HIGGSFIELD_MODE", "pro"),
     sound: wanModel ? "" : envValue("HIGGSFIELD_SOUND", "on"),
