@@ -112,16 +112,21 @@ Generate exactly ${postsPerDay} original short-form video concepts.
 
 Rules:
 - Safe for teen audiences.
+- Final video must be 20-59 seconds, super entertaining, full of motion, and rewatchable.
+- It must still make sense: setup, escalation, punchline/payoff, and ending.
+- Keep up with kid/teen brainrot trends and slang, but only when it helps the joke.
 - No explicit content, graphic violence, harassment, or sexual content.
 - Extract viral patterns, but do not copy any creator's wording or footage.
 - Every script must be designed for a real MP4 video with fast visual motion.
+- No random words. Chaotic is fine; confusing is not.
+- Use fast energetic voice, rapid captions, and clear visual beats that match each sentence.
 
 Return ONLY valid JSON:
 [
   {
     "title": "Internal title",
     "hook": "First 5-8 spoken words",
-    "script": "65-95 word voiceover. Fast-paced, punchy, original, built for captions and quick cuts.",
+    "script": "55-150 word voiceover for a 20-59 second video. Fast-paced, punchy, original, coherent, built for captions and quick cuts.",
     "caption": "Punchy caption, CTA if applicable, 5 hashtags."
   }
 ]`;
