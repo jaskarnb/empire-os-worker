@@ -120,9 +120,14 @@ Generate exactly ${postsPerDay} video concept(s).
 
 Rules:
 - Completely age-appropriate.
+- Final video must be 20-59 seconds, super entertaining, full of motion, and rewatchable.
+- Use kid-loved worlds like Minecraft, Roblox, simple game challenges, colorful characters, funny safe surprises, and interactive moments.
 - Simple vocabulary.
 - Positive, non-scary, no brand mentions, no affiliates.
 - Include a participation moment.
+- Every script must be a clear mini-story with setup, problem, happy payoff, and ending.
+- Use cheerful voice, bright music, readable captions, and visuals that match each sentence.
+- No random words, no confusing jumps, no low-motion static scenes.
 - End with a gentle subscribe/follow CTA.
 
 Return ONLY valid JSON:
@@ -130,7 +135,7 @@ Return ONLY valid JSON:
   {
     "title": "Internal title",
     "hook": "First 5-7 cheerful words",
-    "script": "60-80 word voiceover with simple sentences and a participation moment.",
+    "script": "55-150 word voiceover for a 20-59 second video with simple sentences, a mini-story, and a participation moment.",
     "caption": "Parent-friendly caption with 3-5 kid-friendly hashtags."
   }
 ]`;
@@ -179,9 +184,14 @@ Generate exactly ${postsPerDay} video concept(s).
 
 Rules:
 - Age-appropriate.
+- Final video must be 20-59 seconds, super entertaining, full of motion, and rewatchable.
+- Prefer Minecraft, Roblox, popular kids games, secret tips, funny challenges, safe mysteries, and colorful fast payoffs.
 - No scary content, no inappropriate language.
 - Do not encourage spending real money.
 - No affiliates or brand deals.
+- Every script must be a clear mini-story with setup, challenge, discovery/payoff, and ending.
+- Use cheerful voice, bright music, readable captions, and visuals that match each sentence.
+- No random words, no confusing jumps, no low-motion static scenes.
 - End with "Follow for more ${platform} secrets!" or similar.
 
 Return ONLY valid JSON:
@@ -189,7 +199,7 @@ Return ONLY valid JSON:
   {
     "title": "Internal title",
     "hook": "First 5-8 words that make kids curious",
-    "script": "65-90 word voiceover. High energy, safe, helpful, and specific.",
+    "script": "55-150 word voiceover for a 20-59 second video. High energy, safe, helpful, specific, and coherent.",
     "caption": "Punchy caption with 5 gaming hashtags."
   }
 ]`;
