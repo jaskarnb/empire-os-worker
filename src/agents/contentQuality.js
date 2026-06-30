@@ -85,8 +85,8 @@ export function scorePostQuality({ post = {}, niche = "", audience = "general" }
   const sentenceList = sentences(script);
   const gibberish = gibberishSignals(script);
   const issues = [];
-  const scriptMin = audience === "kids" ? 45 : audience === "teen" ? 45 : 65;
-  const scriptMax = audience === "kids" ? 115 : audience === "teen" ? 130 : 175;
+  const scriptMin = audience === "kids" ? 55 : audience === "teen" ? 55 : 65;
+  const scriptMax = audience === "kids" ? 150 : audience === "teen" ? 150 : 175;
   const scores = {
     hookLength: scoreRange(hookWords, 5, 13),
     scriptLength: scoreRange(scriptWords, scriptMin, scriptMax),
@@ -99,7 +99,7 @@ export function scorePostQuality({ post = {}, niche = "", audience = "general" }
   };
 
   if (hookWords < 5 || hookWords > 14) issues.push(`Hook should be 5-13 words; got ${hookWords}`);
-  if (scriptWords < scriptMin || scriptWords > scriptMax + 10) issues.push(`Script should be ${scriptMin}-${scriptMax} words; got ${scriptWords}`);
+  if (scriptWords < scriptMin || scriptWords > scriptMax + 10) issues.push(`Script should be ${scriptMin}-${scriptMax} words for a 20-59 second video; got ${scriptWords}`);
   if (sentenceList.length < 3) issues.push("Script needs at least 3 complete sentences that flow together");
   if (gibberish.isGibberish) issues.push("Script looks like gibberish, random words, repetition, or disconnected fragments");
   if (scores.coherence < 0.75) issues.push("Script must read like coherent sentences with subject-action flow");
