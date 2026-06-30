@@ -95,15 +95,15 @@ async function scoutTrends(niche) {
 
 function formatInstructions(config) {
   if (config.style === "kids") {
-    return "Each concept must be a bright, kid-safe 15-35 second animated video with cheerful voice, simple captions, motion, and a clear playful payoff. No scary, violent, unsafe, or adult topics.";
+    return "Each concept must be a bright, kid-safe 20-59 second animated video with cheerful voice, simple captions, motion, a complete mini-story, and a clear playful payoff. No scary, violent, unsafe, or adult topics.";
   }
   if (config.style === "brainrot") {
-    return "Each concept must be an 8-25 second fast brainrot/meme video with chaotic motion, punchy captions, fast sound/voice, and a clear joke payoff. No static image posts.";
+    return "Each concept must be a 20-59 second brainrot/meme video with chaotic motion, punchy captions, fast sound/voice, a clear setup, and a clear joke payoff. Chaotic is fine; confusing random words are not.";
   }
   if (config.style === "horror") {
-    return "Each concept should fit horror/true-crime pacing: either short scary payoff or longer story-style narration, platform-safe, non-graphic, with tension and a clear payoff.";
+    return "Each concept must be a 20-59 second horror/true-crime video: either a jump-scare clip with enough buildup and aftermath, or a longer story-style narration, platform-safe, non-graphic, with tension and a clear payoff.";
   }
-  return "Each must be a standalone 20-45 second motion-first video concept with a strong hook, escalation, payoff, and niche-matched sound/voice.";
+  return "Each must be a standalone 20-59 second motion-first video concept with a strong hook, escalation, payoff, and niche-matched sound/voice.";
 }
 
 async function generatePosts(channelName, config, trends, perfSummary, postIndex = 0) {
@@ -128,13 +128,17 @@ ${affiliateBlock}
 ${formatInstructions(config)}
 
 Generate exactly ${postsPerDay} post(s). They must be actual video ideas, not photo-with-caption posts.
+Every script must read like a real spoken story with setup, escalation, payoff, and ending.
+The video direction must clearly match the script beat by beat, not just the niche.
+Use creator/reference patterns from trends, but never copy exact wording, footage, logos, characters, or creator identity.
+No random-word scripts, disconnected fragments, or low-motion static concepts.
 
 Return ONLY valid JSON - no markdown, no explanation:
 [
   {
     "title": "Internal title (3-6 words)",
     "hook": "The exact first 5-8 spoken words - the scroll-stopping opener",
-    "script": "Full voiceover/script beats. No stage directions unless needed for Higgsfield visuals.",
+    "script": "55-150 word voiceover for a 20-59 second video. Natural sentences only. Clear setup, escalation, payoff, and ending. No stage directions unless needed for Higgsfield visuals.",
     "caption": "Social media caption: hook sentence first, 1-2 short lines, then 5 relevant hashtags on a new line."
   }
 ]`;
