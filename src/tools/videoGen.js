@@ -138,6 +138,16 @@ async function audioDuration(audioPath) {
   return Math.min(Math.max(Math.ceil(parseFloat(stdout.trim()) || 30), 8), 58);
 }
 
+async function videoDuration(videoPath) {
+  const { stdout } = await execFileAsync("ffprobe", [
+    "-v", "quiet",
+    "-of", "csv=p=0",
+    "-show_entries", "format=duration",
+    videoPath,
+  ], { timeout: 30_000 });
+  return Math.min(Math.max(parseFloat(stdout.trim()) || 30, 8), 59);
+}
+
 async function renderFrame({ frameScript, output, text, niche, style, sceneIndex, totalScenes }) {
   await execFileAsync("python3", [
     frameScript,
@@ -189,6 +199,10 @@ async function renderAudio({ audioPath, script, style, voice }) {
 
 function subtitleFilterPath(filePath) {
   return String(filePath).replace(/\\/g, "/").replace(/'/g, "\\'");
+}
+
+function isRemoteUrl(value) {
+  return /^https?:\/\//i.test(String(value || ""));
 }
 
 async function encodeVideo({ framePaths, audioPath, videoPath, duration, durations, subtitlePath, style }) {
@@ -245,6 +259,63 @@ async function encodeVideo({ framePaths, audioPath, videoPath, duration, duratio
   await execFileAsync("ffmpeg", args, { timeout: 180_000, maxBuffer: 20 * 1024 * 1024 });
 }
 
+async function renderHiggsfieldFinalVideo({ sourcePath, safeScript, resolvedStyle, voice }) {
+  if (isRemoteUrl(sourcePath)) {
+    console.warn("[VideoGen] Higgsfield returned a remote URL; caption/TTS polish requires a local stitched MP4.");
+    return sourcePath;
+  }
+
+  const videoDir = process.env.VIDEO_DIR || "./output/video";
+  const audioDir = process.env.AUDIO_DIR || "./output/audio";
+  fs.mkdirSync(videoDir, { recursive: true });
+  fs.mkdirSync(audioDir, { recursive: true });
+
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const audioPath = path.resolve(audioDir, `${id}_voice.mp3`);
+  const subtitlePath = path.resolve(videoDir, `${id}_captions.ass`);
+  const outputPath = path.resolve(videoDir, `${id}_higgsfield_captioned.mp4`);
+
+  try {
+    const duration = await videoDuration(sourcePath);
+    await renderAudio({ audioPath, script: safeScript, style: resolvedStyle, voice });
+    writeSubtitleFile({ subtitlePath, script: safeScript, duration, style: resolvedStyle });
+
+    const captionFilter = `subtitles='${subtitleFilterPath(subtitlePath)}'`;
+    const videoFilter = resolvedStyle === "horror"
+      ? `scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},noise=alls=10:allf=t+u,eq=contrast=1.18:brightness=-0.025:saturation=0.82,vignette=PI/5,${captionFilter}[v]`
+      : resolvedStyle === "brainrot"
+        ? `scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},eq=contrast=1.12:saturation=1.24,unsharp=5:5:0.55,${captionFilter}[v]`
+        : `scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},${captionFilter}[v]`;
+
+    await execFileAsync("ffmpeg", [
+      "-y",
+      "-i", sourcePath,
+      "-i", audioPath,
+      "-filter_complex", `[0:v]${videoFilter};[1:a]apad[a]`,
+      "-map", "[v]",
+      "-map", "[a]",
+      "-t", duration.toFixed(3),
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-crf", "21",
+      "-c:a", "aac",
+      "-b:a", "128k",
+      "-pix_fmt", "yuv420p",
+      "-movflags", "+faststart",
+      outputPath,
+    ], { timeout: 240_000, maxBuffer: 20 * 1024 * 1024 });
+
+    const validation = await assertRenderableVideo(outputPath, { minDuration: 20, requireAudio: true, requireVertical: true });
+    console.log(`[VideoGen] Captioned Higgsfield final OK ${outputPath} (${validation.duration.toFixed(1)}s)`);
+    try { fs.unlinkSync(sourcePath); } catch {}
+    return outputPath;
+  } finally {
+    for (const file of [audioPath, subtitlePath]) {
+      try { fs.unlinkSync(file); } catch {}
+    }
+  }
+}
+
 function allowLocalDebug(allowLocalFallback = false) {
   return allowLocalFallback || process.env.HIGGSFIELD_ALLOW_LOCAL_DEBUG === "true";
 }
@@ -298,9 +369,10 @@ export async function generateVideo({ script, hook, niche = "", style = "auto", 
   if (isHiggsfieldConfigured()) {
     const estimatedCost = Number(process.env.HIGGSFIELD_RENDER_COST_USD || 0.35);
     assertSpendAllowed(estimatedCost);
-    const videoUrl = await generateHiggsfieldVideo({ script: safeScript, hook, niche, style: resolvedStyle });
-    recordRenderSpend({ source: "higgsfield", estimatedCost, videoPath: videoUrl });
-    return videoUrl;
+    const higgsfieldPath = await generateHiggsfieldVideo({ script: safeScript, hook, niche, style: resolvedStyle });
+    const finalPath = await renderHiggsfieldFinalVideo({ sourcePath: higgsfieldPath, safeScript, resolvedStyle, voice });
+    recordRenderSpend({ source: "higgsfield", estimatedCost, videoPath: finalPath });
+    return finalPath;
   }
 
   if (allowLocalDebug(allowLocalFallback)) {
