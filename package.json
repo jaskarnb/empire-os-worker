@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "smoke:startup": "node scripts/startupSmoke.js",
     "smoke:policy": "node scripts/policyGuardSmoke.js",
     "smoke:verifier": "node scripts/verifierSmoke.js"
   },
