@@ -240,23 +240,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/ops/channels") {
-    try {
-      const channels = await getChannels();
-      sendJson(res, 200, {
-        status: "ok",
-        channels: channels.map((channel) => ({
-          id: channel?.id || channel?._id || channel?.integrationId || null,
-          name: channel?.name || channel?.username || channel?.identifier || null,
-          provider: channel?.provider || channel?.type || channel?.social || channel?.identifier || null,
-        })),
-      });
-    } catch (error) {
-      sendJson(res, 500, { status: "error", error: error.message, ts: new Date().toISOString() });
-    }
-    return;
-  }
-
   if (req.method === "GET" && url.pathname === "/ops/agents") {
     sendJson(res, 200, dashboardAgentStatus());
     return;
@@ -512,10 +495,10 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "POST" && url.pathname === "/standup") {
-    sendJson(res, 202, { status: "running", ts: new Date().toISOString() });
+  if (req.method === "POST" && (url.pathname === "/standup" || url.pathname === "/ops/run-standup")) {
+    sendJson(res, 202, { status: "running", ts: new Date().toISOString(), message: "All 3 Empire meetings triggered. Check Railway logs for progress." });
     (async () => {
-      console.log("[Standup] Manual trigger received");
+      console.log("[Standup] Manual trigger received via", url.pathname);
       try { await runDailyMeeting(); await verifyTaskCompletion({ task: "manual-daily-meeting" }); } catch (e) { console.error("[Standup] dailyMeeting:", e.message); }
       try { await runBrainRotMeeting(); await verifyTaskCompletion({ task: "manual-brainrot-meeting" }); } catch (e) { console.error("[Standup] brainRotMeeting:", e.message); }
       try { await runKidsMeeting(); await verifyTaskCompletion({ task: "manual-kids-meeting" }); } catch (e) { console.error("[Standup] kidsMeeting:", e.message); }

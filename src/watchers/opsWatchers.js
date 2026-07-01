@@ -35,7 +35,15 @@ function summarizeChannel(channel) {
   return {
     id: channel?.id || channel?._id || channel?.integrationId || null,
     name: channel?.name || channel?.username || channel?.identifier || channel?.provider || "unknown",
-    provider: channel?.provider || channel?.type || channel?.social || channel?.platform || "unknown",
+    provider:
+      channel?.type ||
+      channel?.provider ||
+      channel?.networkId ||
+      channel?.network ||
+      channel?.social ||
+      channel?.platform ||
+      channel?.internalType ||
+      "unknown",
   };
 }
 
@@ -307,7 +315,7 @@ function checkHiggsfield() {
   return ok(agent, {
     enabled,
     cliPath,
-    model: process.env.HIGGSFIELD_VIDEO_MODEL || "seedance_2_0",
+    model: process.env.HIGGSFIELD_VIDEO_MODEL || "cinematic_studio_video_v2",
     mode: "production-required",
   });
 }

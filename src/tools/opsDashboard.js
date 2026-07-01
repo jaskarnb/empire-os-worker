@@ -64,7 +64,6 @@ body {
 .mono { font-family: ui-monospace,'SF Mono',Menlo,monospace; }
 .eyebrow { font-family: ui-monospace,'SF Mono',Menlo,monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #8593ab; }
 
-/* ── HEADER (verbatim from reference) ── */
 .header {
   padding: 18px 22px;
   border-bottom: 1px solid rgba(120,160,220,0.16);
@@ -93,7 +92,6 @@ body {
 .bar-track { height: 3px; background: rgba(120,160,220,0.12); border-radius: 2px; overflow: hidden; margin-top: 8px; }
 .bar-fill  { height: 100%; width: 0%; background: linear-gradient(90deg,#fbbf24,#fde68a); border-radius: 2px; transition: width .5s ease; }
 
-/* ── TABS (verbatim from reference) ── */
 .tabs { display: flex; gap: 3px; padding: 9px 14px; border-bottom: 1px solid rgba(120,160,220,0.16); overflow-x: auto; }
 .tab-btn {
   white-space: nowrap; background: transparent; color: #8593ab;
@@ -104,12 +102,10 @@ body {
 .tab-btn.active { background: rgba(34,211,238,0.12); color: #22d3ee; border-color: rgba(34,211,238,0.45); box-shadow: 0 0 14px rgba(34,211,238,.2); }
 .tab-btn:hover:not(.active) { color: #e3ebf5; }
 
-/* ── LAYOUT (verbatim from reference) ── */
 .body-wrap  { display: flex; }
 .main-panel { flex: 1; padding: 20px 22px; overflow-y: auto; max-height: calc(100vh - 240px); }
 .tele-panel { width: 230px; border-left: 1px solid rgba(120,160,220,0.16); padding: 14px; overflow-y: auto; max-height: calc(100vh - 240px); background: linear-gradient(180deg,rgba(14,20,36,.4),transparent); }
 
-/* ── PANELS ── */
 .panel { position: relative; border: 1px solid rgba(120,160,220,0.16); border-radius: 4px; background: linear-gradient(180deg,rgba(17,24,41,.72),rgba(8,12,22,.72)); padding: 14px; }
 .panel-2 { background: linear-gradient(180deg,rgba(22,30,50,.6),rgba(11,16,28,.6)); }
 .panel + .panel, .panel + .platDetailCard { margin-top: 10px; }
@@ -124,7 +120,6 @@ body {
 .sec::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg,rgba(120,160,220,0.24),transparent); }
 .mt { margin-top: 22px; }
 
-/* ── MINI LIST ── */
 .miniList { display: grid; }
 .miniItem { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px solid rgba(120,160,220,0.08); font-size: 12px; }
 .miniItem:last-child  { border-bottom: 0; padding-bottom: 0; }
@@ -132,7 +127,6 @@ body {
 .miniItem strong { font-weight: 600; color: #e3ebf5; font-size: 12px; }
 .miniItem span   { color: #8593ab; font-size: 11px; text-align: right; }
 
-/* ── BUTTONS (verbatim from reference) ── */
 .btn { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; border-radius: 3px; padding: 8px 13px; font-size: 11.5px; font-weight: 600; font-family: ui-monospace,'SF Mono',Menlo,monospace; letter-spacing: .4px; text-transform: uppercase; transition: .15s; border: 1px solid; }
 .btn-cyan   { color: #22d3ee; border-color: rgba(34,211,238,.5);  background: rgba(34,211,238,.1);  }
 .btn-gold   { color: #fbbf24; border-color: rgba(251,191,36,.5);  background: rgba(251,191,36,.1);  }
@@ -144,7 +138,6 @@ body {
 .btn:disabled { opacity: .4; cursor: default; }
 .btn-row { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 16px; }
 
-/* ── TEAM CARD (verbatim from reference) ── */
 .team-grid { display: grid; gap: 10px; }
 .team-card { border: 1px solid rgba(120,160,220,0.16); border-radius: 4px; padding: 14px; border-left-width: 2px; background: linear-gradient(180deg,rgba(22,30,50,.6),rgba(11,16,28,.6)); }
 .agent-node { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.02); border: 1px solid rgba(120,160,220,0.16); border-radius: 3px; padding: 6px 10px; }
@@ -153,7 +146,6 @@ body {
 .agent-role { font-size: 10.5px; color: #525d75; margin-top: 1px; }
 .agents-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
-/* ── SQUAD CARDS (expandable) ── */
 .squadGrid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .squadCard { background: linear-gradient(180deg,rgba(22,30,50,.6),rgba(11,16,28,.6)); border: 1px solid rgba(120,160,220,0.16); border-radius: 4px; border-left-width: 2px; overflow: hidden; cursor: pointer; transition: border-color .2s; }
 .squadHeader { padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; }
@@ -170,7 +162,6 @@ body {
 .squadMetaRow span   { color: #8593ab; }
 .squadMetaRow strong { color: #e3ebf5; font-weight: 600; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
 
-/* ── PIPELINE ── */
 .pipeStep     { flex-shrink: 0; background: linear-gradient(180deg,rgba(22,30,50,.6),rgba(11,16,28,.6)); border: 1px solid rgba(120,160,220,0.16); border-radius: 4px; padding: 11px 12px; min-width: 100px; text-align: center; transition: border-color .2s; }
 .pipeStep.active { border-color: rgba(34,211,238,0.45); box-shadow: 0 0 12px rgba(34,211,238,0.1); }
 .pipeStepNum  { font-size: 9px; font-weight: 700; color: #525d75; letter-spacing: .08em; margin-bottom: 4px; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
@@ -181,7 +172,6 @@ body {
 .pipeBarRow   { display: grid; grid-template-columns: 66px minmax(0,1fr) 64px; align-items: center; gap: 10px; }
 .stepName     { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #8593ab; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
 
-/* ── AGENT PIPELINE ── */
 .agentStats    { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .agentStat     { background: linear-gradient(180deg,rgba(22,30,50,.6),rgba(11,16,28,.6)); border: 1px solid rgba(120,160,220,0.16); border-radius: 4px; padding: 10px 14px; display: flex; align-items: baseline; gap: 7px; }
 .agentStatVal  { font-size: 20px; font-weight: 800; color: #e3ebf5; letter-spacing: -.5px; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
@@ -201,7 +191,6 @@ body {
 .agentPipeSub  { font-size: 9px; color: #8593ab; margin-top: 2px; }
 .agentPipeArr  { flex-shrink: 0; width: 22px; text-align: center; color: #525d75; font-size: 12px; font-weight: 700; }
 
-/* ── PLATFORM ── */
 .platGrid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
 .platCard { background: linear-gradient(180deg,rgba(22,30,50,.6),rgba(11,16,28,.6)); border: 1px solid rgba(120,160,220,0.16); border-radius: 4px; padding: 12px 14px; display: flex; align-items: center; gap: 11px; }
 .platIcon { width: 36px; height: 36px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; flex-shrink: 0; font-family: ui-monospace,'SF Mono',Menlo,monospace; letter-spacing: -.5px; }
@@ -223,12 +212,10 @@ body {
 .platStatVal    { font-size: 15px; font-weight: 800; color: #e3ebf5; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
 .platStatNote   { font-size: 10.5px; color: #8593ab; margin-top: 3px; }
 
-/* ── PILLS ── */
 .pill { font-size: 10px; font-weight: 700; border-radius: 3px; padding: 2px 8px; text-align: center; background: rgba(120,160,220,0.06); border: 1px solid rgba(120,160,220,0.16); color: #8593ab; letter-spacing: .5px; font-family: ui-monospace,'SF Mono',Menlo,monospace; text-transform: uppercase; display: inline-block; }
 .pill.ok,.pill.ready,.pill.active,.pill.passing,.pill.queued { background: rgba(52,211,153,.1); border-color: rgba(52,211,153,.3); color: #34d399; }
 .pill.blocked,.pill.fail { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.25); color: #ef4444; }
 
-/* ── ANALYTICS ── */
 .metricRow  { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; margin-bottom: 10px; }
 .metricCard { background: linear-gradient(180deg,rgba(22,30,50,.6),rgba(11,16,28,.6)); border: 1px solid rgba(120,160,220,0.16); border-radius: 4px; padding: 13px; }
 .metricLabel { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #8593ab; margin-bottom: 7px; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
@@ -240,7 +227,6 @@ body {
 .recommendItem  { font-size: 12px; color: #e3ebf5; display: flex; gap: 7px; align-items: flex-start; }
 .recommendItem::before { content: "&#8594;"; color: #22d3ee; flex-shrink: 0; font-weight: 700; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
 
-/* ── HEALTH CARDS ── */
 .healthGrid    { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .healthCard    { background: linear-gradient(180deg,rgba(22,30,50,.6),rgba(11,16,28,.6)); border: 1px solid rgba(120,160,220,0.16); border-radius: 4px; border-top-width: 2px; padding: 13px; }
 .healthCard.ok   { border-top-color: #34d399; }
@@ -252,12 +238,10 @@ body {
 .healthCardStatus.bad  { color: #ef4444; }
 .healthCardMeta   { font-size: 10.5px; color: #8593ab; margin-top: 3px; }
 
-/* ── VIDEO LINK ── */
 a { color: #22d3ee; text-decoration: none; }
 a:hover { color: #a5f3fc; }
 .video-link { display: flex; align-items: center; gap: 9px; padding: 11px 13px; background: rgba(34,211,238,.1); border: 1px solid rgba(34,211,238,.35); border-radius: 4px; font-size: 12.5px; font-weight: 700; color: #22d3ee; font-family: ui-monospace,'SF Mono',Menlo,monospace; transition: all .15s; margin-top: 8px; }
 
-/* ── TABLES ── */
 .tableWrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
 thead th { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #8593ab; padding: 0 8px 9px; border-bottom: 1px solid rgba(120,160,220,0.16); text-align: left; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
@@ -269,7 +253,6 @@ tbody td { padding: 9px 8px; vertical-align: middle; color: #e3ebf5; font-size: 
 .empty   { color: #525d75; font-size: 12px; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
 code { font-size: 10.5px; color: #525d75; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
 
-/* ── STATUS / SEVERITY ── */
 .severity { display: inline-block; font-size: 9.5px; font-weight: 700; border-radius: 3px; padding: 2px 7px; background: rgba(120,160,220,0.06); border: 1px solid rgba(120,160,220,0.16); color: #8593ab; letter-spacing: .05em; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
 .severity.P0 { background: rgba(239,68,68,.1);  border-color: rgba(239,68,68,.25);  color: #ef4444; }
 .severity.P1 { background: rgba(251,146,60,.1); border-color: rgba(251,146,60,.28); color: #fb923c; }
@@ -284,10 +267,8 @@ code { font-size: 10.5px; color: #525d75; font-family: ui-monospace,'SF Mono',Me
 .status-cell.notice                  { color: #fbbf24; }
 .status-cell.incident,.status-cell.fail { color: #ef4444; }
 
-/* ── PRE / REPORT ── */
 pre { background: rgba(0,0,0,.4); border: 1px solid rgba(120,160,220,0.16); border-radius: 4px; padding: 12px; font-family: ui-monospace,'SF Mono',Menlo,monospace; font-size: 10.5px; color: #8593ab; white-space: pre-wrap; overflow: auto; max-height: 260px; line-height: 1.7; }
 
-/* ── TELEMETRY (verbatim from reference) ── */
 .tele-head { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; }
 .tele-dot  { width: 6px; height: 6px; border-radius: 50%; background: #22d3ee; box-shadow: 0 0 6px #22d3ee; animation: pulse 2.2s ease-in-out infinite; }
 .log-entry { margin-bottom: 11px; }
@@ -297,7 +278,6 @@ pre { background: rgba(0,0,0,.4); border: 1px solid rgba(120,160,220,0.16); bord
 .log-time  { margin-left: auto; font-size: 10px; color: #525d75; font-family: ui-monospace,'SF Mono',Menlo,monospace; }
 .log-msg   { font-size: 12px; color: #8593ab; padding-left: 11px; margin-top: 2px; line-height: 1.45; }
 
-/* ── NOTIFICATION (verbatim from reference) ── */
 .notif { position: fixed; bottom: 16px; right: 16px; z-index: 999; background: rgba(17,24,41,.95); border: 1px solid rgba(34,211,238,.4); border-radius: 4px; padding: 12px 16px; font-size: 13px; max-width: 280px; box-shadow: 0 4px 24px rgba(0,0,0,.5); display: none; }
 .notif.visible { display: block; }
 .hidden { display: none !important; }
@@ -394,7 +374,8 @@ pre { background: rgba(0,0,0,.4); border: 1px solid rgba(120,160,220,0.16); bord
   <div class="section-sub">9 squads, 31 agents. Autonomous short-form content pipeline.</div>
 
   <div class="btn-row">
-    <button id="runBtn" class="btn btn-cyan">&#9654; Run Check</button>
+    <button id="standupBtn" class="btn btn-cyan">&#9654;&#9654; Run Meetings</button>
+    <button id="runBtn" class="btn btn-dim">&#9654; Run Check</button>
     <button id="videoBtn" class="btn btn-violet">&#11041; Video Test</button>
     <button id="postizBtn" class="btn btn-blue">&#8599; Postiz</button>
     <button id="e2eBtn" class="btn btn-green">&#11041; E2E</button>
@@ -870,7 +851,7 @@ pre { background: rgba(0,0,0,.4); border: 1px solid rgba(120,160,220,0.16); bord
 
 </div><!-- /main-panel -->
 
-<!-- TELEMETRY (verbatim from reference) -->
+<!-- TELEMETRY -->
 <div class="tele-panel">
   <div class="tele-head">
     <span class="tele-dot"></span>
@@ -888,7 +869,6 @@ pre { background: rgba(0,0,0,.4); border: 1px solid rgba(120,160,220,0.16); bord
 <div id="notif" class="notif"></div>
 
 <script>
-/* ── REFERENCE JS (verbatim) ── */
 function nowt() { return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
 function pushLog(agent, color, msg) {
   var el = document.getElementById('tele-log');
@@ -912,12 +892,11 @@ function switchTab(id, btn) {
   btn.classList.add('active');
 }
 
-/* ── SQUAD TOGGLE ── */
 document.querySelectorAll('.squadCard').forEach(function(card){
   card.addEventListener('click', function(){ card.classList.toggle('open'); });
 });
 
-/* ── ELEMENT REFS ── */
+var standupBtn       = document.getElementById('standupBtn');
 var runBtn           = document.getElementById('runBtn');
 var videoBtn         = document.getElementById('videoBtn');
 var postizBtn        = document.getElementById('postizBtn');
@@ -942,7 +921,6 @@ var scheduledMetaEl  = document.getElementById('scheduledMeta');
 var generatorValueEl = document.getElementById('generatorValue');
 var generatorMetaEl  = document.getElementById('generatorMeta');
 
-/* ── HELPERS ── */
 function esc(value){ return String(value??'').replace(/[&<>']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;'}[c]||c; }); }
 function money(value){ var n=Number(value||0); return '$'+n.toFixed(n>=10?0:2); }
 function setStatusClass(el,status){
@@ -957,7 +935,6 @@ function updatePill(id,text){
   el.textContent=text; el.className='pill '+text;
 }
 
-/* ── DRAW INCIDENTS ── */
 function drawIncidents(incidents){
   incidentCountEl.textContent=incidents.length;
   incidentRowsEl.innerHTML=incidents.length
@@ -969,7 +946,6 @@ function drawIncidents(incidents){
     :'<tr><td colspan="5" class="empty">No incidents recorded.</td></tr>';
 }
 
-/* ── DRAW CHECKS ── */
 function drawChecks(report){
   var checks=Array.isArray(report&&report.checks)?report.checks:[];
   var badge=document.getElementById('watcherCount');
@@ -993,7 +969,6 @@ function drawChecks(report){
     :'<tr><td colspan="4" class="empty">No watcher check has run yet.</td></tr>';
 }
 
-/* ── DRAW OPS STATE ── */
 function drawOpsState(data){
   var control=data.control||{};
   var spend=data.spend||{};
@@ -1057,7 +1032,6 @@ function drawOpsState(data){
   updatePill('schedulePill',upcoming?'queued':'empty');
 }
 
-/* ── REFRESH STATUS ── */
 async function refreshStatus(){
   var res=await fetch('/ops/status');
   var data=await res.json();
@@ -1074,7 +1048,6 @@ async function refreshStatus(){
   }
 }
 
-/* ── POST JSON ── */
 async function postJson(path,button,label,body){
   body=body||{};
   button.disabled=true;
@@ -1103,7 +1076,6 @@ async function postJson(path,button,label,body){
   }
 }
 
-/* ── AGENT DATA ── */
 async function fetchAgents(){
   try{
     var res=await fetch('/ops/agents');
@@ -1135,7 +1107,10 @@ async function fetchAgentMemory(){
   }catch(e){ /* endpoint not yet live */ }
 }
 
-/* ── EVENT LISTENERS ── */
+standupBtn.addEventListener('click', function(){
+  pushLog('Atlas','#22d3ee','Triggering all 3 Empire meetings — Daily, BrainRot, Kids…');
+  postJson('/ops/run-standup',standupBtn,'running');
+});
 runBtn.addEventListener('click', function(){
   pushLog('Ops','#22d3ee','Running watcher check…');
   postJson('/ops/check',runBtn,'running');
@@ -1166,7 +1141,6 @@ resumeBtn.addEventListener('click', function(){
   postJson('/ops/resume',resumeBtn,'resuming',{reason:'Resumed from Empire OS'});
 });
 
-/* ── INIT ── */
 setStatusClass(statusEl,'${escapeHtml(initialStatus)}');
 pushLog('System','#22d3ee','Dashboard loaded. Fetching status…');
 refreshStatus().catch(function(){ pushLog('System','#ef4444','Could not reach worker.'); });

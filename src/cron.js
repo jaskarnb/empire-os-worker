@@ -57,9 +57,21 @@ async function runAllMeetings() {
   console.log("[Cron] All meetings complete. Empire running.\n");
 }
 
+function standupEnabled() {
+  // Explicit opt-out wins
+  if (process.env.AUTO_STANDUP === "false") return false;
+  // Explicit opt-in
+  if (process.env.AUTO_STANDUP === "true") return true;
+  // Auto-enable when fully configured: Higgsfield + Postiz key + spend budget
+  const higgsfieldOn = process.env.HIGGSFIELD_ENABLED === "true";
+  const postizSet    = Boolean(process.env.POSTIZ_API_KEY);
+  const budgetSet    = Number(process.env.DAILY_SPEND_LIMIT_USD || 0) > 0;
+  return higgsfieldOn && postizSet && budgetSet;
+}
+
 function startStandupCron() {
-  if (process.env.AUTO_STANDUP !== "true") {
-    console.log("[Cron] AUTO_STANDUP not set - skipping content schedule.");
+  if (!standupEnabled()) {
+    console.log("[Cron] Standup not enabled. Set AUTO_STANDUP=true, or ensure HIGGSFIELD_ENABLED=true + POSTIZ_API_KEY + DAILY_SPEND_LIMIT_USD>0.");
     return;
   }
   if (process.env.HIGGSFIELD_ENABLED === "true" && Number(process.env.DAILY_SPEND_LIMIT_USD || 0) <= 0) {
