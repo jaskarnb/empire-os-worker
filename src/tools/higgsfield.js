@@ -1,4 +1,6 @@
 import { execFile } from "child_process";
+import fs from "fs";
+import path from "path";
 import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
@@ -78,16 +80,20 @@ function voiceDirection(style) {
   return "Voice/sound direction: clear creator narration, confident pacing, clean social-video sound design.";
 }
 
-function stylePrompt({ script, hook, niche, style }) {
+function stylePrompt({ script, hook, niche, style, durationSeconds, segmentIndex = 1, totalSegments = 1 }) {
+  const segmentMode = totalSegments > 1;
   const base = [
     "Create a vertical 9:16 short-form video with real cinematic motion.",
-    "Target runtime: at least 20 seconds and no more than 59 seconds.",
-    "Do not make tiny preview clips; the video needs enough time for setup, movement, payoff, and a final beat.",
+    segmentMode
+      ? `This is segment ${segmentIndex} of ${totalSegments}. Target runtime: about ${durationSeconds} seconds for this segment.`
+      : `Target runtime: about ${durationSeconds} seconds.`,
+    segmentMode
+      ? "This segment must feel like part of one continuous story that can be stitched with the other segments."
+      : "The video needs enough time for setup, movement, payoff, and a final beat.",
     "It must be a generated video, not a slideshow and not a static image.",
     "The video must follow the script beat-by-beat: each major sentence should have a matching visual moment.",
-    "Keep visual continuity so the scene feels like one coherent story, not random unrelated clips.",
+    "Keep visual continuity so the scene feels coherent, not random unrelated clips.",
     "Use strong pacing, visual continuity, and retention-focused camera movement.",
-    "Make the short feel complete: setup, escalation, payoff, and a final after-beat.",
     "Prioritize high-quality lighting, clear subjects, stable composition, smooth motion, and polished social-ready framing.",
     "No copyrighted characters, no copied creator footage, no logos.",
   ];
@@ -97,28 +103,25 @@ function stylePrompt({ script, hook, niche, style }) {
       "Realistic caught-on-camera footage.",
       "Handheld phone camera moving through a dark hallway or backyard at night.",
       "Build dread with small visual clues, distant movement, uneasy silence, and a clear camera path that matches the script.",
-      "For short horror, keep it 20-30 seconds with a strong jump scare and aftermath beat.",
-      "For story horror, use 40-59 seconds with narration, captions, escalation, and a stronger ending.",
-      "After the scare, hold a short unsettling aftermath beat so viewers process what happened.",
+      segmentMode && segmentIndex < totalSegments
+        ? "End this segment on rising tension, not a full ending."
+        : "End with a strong platform-safe jump scare and a short unsettling aftermath beat.",
       "Cinematic tension build. Found footage aesthetic. No CGI monsters.",
       "No graphic gore. Scary atmosphere, rising dread, clear payoff.",
       "Genre: horror. Sound on. Sharp scare beat, but keep it platform-safe.",
-    ],
+    ].filter(Boolean),
     brainrot: [
       "Style: fast chaotic viral meme video with exaggerated motion and quick visual punchlines.",
-      "Target 20-35 seconds unless the joke needs more setup; never feel cut off too early.",
       "Every visual joke must connect to the script, with readable punchy captions and quick transitions.",
       "Bright, high-energy, funny, safe for teen audiences.",
     ],
     kids: [
       "Style: cheerful, colorful, safe kids video with friendly motion and simple happy visuals.",
-      "Target 20-40 seconds with a complete beginning, middle, and ending.",
       "Every scene should clearly show what the script says, using cute characters, bright colors, and easy-to-understand actions.",
       "No scary images, no danger, no inappropriate content.",
     ],
     dark: [
       "Style: polished social media explainer with cinematic b-roll, smooth motion, and bold visual hooks.",
-      "Target 20-45 seconds with clean pacing and no filler.",
       "Use visuals that directly support each sentence, with clean captions and no random filler shots.",
     ],
   };
@@ -131,7 +134,7 @@ function stylePrompt({ script, hook, niche, style }) {
     `Opening hook: ${cleanText(hook, 120)}`,
     `Voiceover/script: ${cleanText(script, 1400)}`,
     "Quality requirement: premium-looking video, coherent scene progression, script-matched visuals, appropriate voice/sound, readable captions if captions are present, and no random words or disconnected visuals.",
-    "Output: vertical, social-ready, 20-59 seconds, with enough motion and story progression to hold attention through the full clip.",
+    "Output: vertical, social-ready, fully animated/generated video with enough motion to hold attention.",
   ].join("\n"));
 }
 
@@ -144,10 +147,10 @@ function envValue(name, fallback = "") {
   return Object.prototype.hasOwnProperty.call(process.env, name) ? process.env[name] : fallback;
 }
 
-function durationValue() {
-  const parsed = Number(envValue("HIGGSFIELD_DURATION", "20"));
-  if (!Number.isFinite(parsed)) return "20";
-  return String(Math.min(59, Math.max(20, Math.floor(parsed))));
+function requestedDurationValue() {
+  const parsed = Number(envValue("HIGGSFIELD_DURATION", "30"));
+  if (!Number.isFinite(parsed)) return 30;
+  return Math.min(59, Math.max(20, Math.floor(parsed)));
 }
 
 function includeResolutionParam() {
@@ -160,14 +163,20 @@ function selectedModel() {
   return configured;
 }
 
-function modelParams(style, model) {
+function modelMaxDuration(model) {
+  if (/^wan2_/i.test(model)) return 15;
+  if (model === "cinematic_studio_video_v2") return 12;
+  return 15;
+}
+
+function modelParams(style, model, durationSeconds) {
   const horror = style === "horror";
   const wanModel = /^wan2_/i.test(model);
 
   return {
     aspectRatioFlag: envValue("HIGGSFIELD_ASPECT_RATIO_PARAM", "aspect_ratio"),
     aspectRatio: envValue("HIGGSFIELD_ASPECT_RATIO", "9:16"),
-    duration: durationValue(),
+    duration: String(Math.min(modelMaxDuration(model), Math.max(1, Math.floor(durationSeconds)))),
     genre: wanModel ? "" : envValue("HIGGSFIELD_GENRE", horror ? "horror" : ""),
     mode: wanModel ? "" : envValue("HIGGSFIELD_MODE", "pro"),
     sound: wanModel ? "" : envValue("HIGGSFIELD_SOUND", "on"),
@@ -192,7 +201,7 @@ function extractVideoUrl(output) {
       parsed.assetUrl,
       parsed.asset_url,
       ...(Array.isArray(parsed.urls) ? parsed.urls : []),
-      ...(Array.isArray(parsed.outputs) ? parsed.outputs : []),
+      ...(Array.isArray(parsed.outputs) ? parsed.urls : []),
       ...(Array.isArray(parsed.results) ? parsed.results : []),
     ].flat().filter(Boolean);
     const found = candidates.find((value) => /^https?:\/\//i.test(String(value)));
@@ -202,14 +211,18 @@ function extractVideoUrl(output) {
   throw new Error(`Higgsfield did not return a video URL: ${text.slice(0, 500)}`);
 }
 
-export async function generateHiggsfieldVideo({ script, hook, niche = "", style = "dark" }) {
-  if (!enabled()) throw new Error("HIGGSFIELD_ENABLED is not true");
+function splitScriptForSegments(script, totalSegments) {
+  const sentences = cleanText(script, 1800).split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (sentences.length < totalSegments) return Array.from({ length: totalSegments }, () => cleanText(script, 1400));
 
-  const model = selectedModel();
-  const timeout = process.env.HIGGSFIELD_WAIT_TIMEOUT || "20m";
-  const interval = process.env.HIGGSFIELD_WAIT_INTERVAL || "5s";
-  const prompt = stylePrompt({ script, hook, niche, style });
-  const params = modelParams(style, model);
+  const buckets = Array.from({ length: totalSegments }, () => []);
+  sentences.forEach((sentence, index) => buckets[index % totalSegments].push(sentence));
+  return buckets.map((items) => cleanText(items.join(" "), 1400));
+}
+
+async function generateSingleHiggsfieldVideo({ script, hook, niche, style, model, durationSeconds, segmentIndex = 1, totalSegments = 1 }) {
+  const prompt = stylePrompt({ script, hook, niche, style, durationSeconds, segmentIndex, totalSegments });
+  const params = modelParams(style, model, durationSeconds);
 
   const args = [
     "generate",
@@ -219,9 +232,9 @@ export async function generateHiggsfieldVideo({ script, hook, niche = "", style 
     prompt,
     "--wait",
     "--wait-timeout",
-    timeout,
+    process.env.HIGGSFIELD_WAIT_TIMEOUT || "20m",
     "--wait-interval",
-    interval,
+    process.env.HIGGSFIELD_WAIT_INTERVAL || "5s",
     "--json",
     "--no-color",
   ];
@@ -233,14 +246,89 @@ export async function generateHiggsfieldVideo({ script, hook, niche = "", style 
   pushParam(args, "sound", params.sound);
   pushParam(args, "resolution", params.resolution);
 
-  console.log(`[Higgsfield] Generating ${style} video with ${model}...`);
+  console.log(`[Higgsfield] Generating ${style} segment ${segmentIndex}/${totalSegments} with ${model}...`);
   await ensureWorkspaceSelected();
   const { stdout, stderr } = await execFileAsync(cliPath(), args, {
     timeout: Number(process.env.HIGGSFIELD_TIMEOUT_MS || 25 * 60 * 1000),
     maxBuffer: 20 * 1024 * 1024,
   });
-  const output = [stdout, stderr].filter(Boolean).join("\n");
-  const videoUrl = extractVideoUrl(output);
-  console.log(`[Higgsfield] Video ready: ${videoUrl}`);
-  return videoUrl;
+  return extractVideoUrl([stdout, stderr].filter(Boolean).join("\n"));
+}
+
+async function downloadVideo(url, outputPath) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Higgsfield video download failed ${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.length < 100_000) throw new Error(`Higgsfield video download was too small (${buffer.length} bytes)`);
+  fs.writeFileSync(outputPath, buffer);
+}
+
+function concatFileLine(filePath) {
+  return `file '${String(filePath).replace(/'/g, "'\\''")}'`;
+}
+
+async function stitchVideos(segmentPaths, outputPath) {
+  const listPath = outputPath.replace(/\.mp4$/i, ".txt");
+  fs.writeFileSync(listPath, segmentPaths.map(concatFileLine).join("\n"));
+  try {
+    await execFileAsync("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", outputPath], {
+      timeout: 180_000,
+      maxBuffer: 20 * 1024 * 1024,
+    });
+  } catch {
+    await execFileAsync("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c:v", "libx264", "-c:a", "aac", "-pix_fmt", "yuv420p", outputPath], {
+      timeout: 240_000,
+      maxBuffer: 20 * 1024 * 1024,
+    });
+  } finally {
+    try { fs.unlinkSync(listPath); } catch {}
+  }
+}
+
+export async function generateHiggsfieldVideo({ script, hook, niche = "", style = "dark" }) {
+  if (!enabled()) throw new Error("HIGGSFIELD_ENABLED is not true");
+
+  const model = selectedModel();
+  const targetDuration = requestedDurationValue();
+  const maxDuration = modelMaxDuration(model);
+  const totalSegments = Math.min(Number(process.env.HIGGSFIELD_MAX_STITCH_SEGMENTS || 4), Math.ceil(targetDuration / maxDuration));
+
+  if (totalSegments <= 1) {
+    const videoUrl = await generateSingleHiggsfieldVideo({ script, hook, niche, style, model, durationSeconds: targetDuration });
+    console.log(`[Higgsfield] Video ready: ${videoUrl}`);
+    return videoUrl;
+  }
+
+  const videoDir = path.resolve(process.env.VIDEO_DIR || "./output/video");
+  fs.mkdirSync(videoDir, { recursive: true });
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const segmentScripts = splitScriptForSegments(script, totalSegments);
+  const segmentPaths = [];
+
+  try {
+    for (let i = 0; i < totalSegments; i++) {
+      const segmentUrl = await generateSingleHiggsfieldVideo({
+        script: segmentScripts[i] || script,
+        hook,
+        niche,
+        style,
+        model,
+        durationSeconds: maxDuration,
+        segmentIndex: i + 1,
+        totalSegments,
+      });
+      const segmentPath = path.join(videoDir, `${id}_higgsfield_segment_${i + 1}.mp4`);
+      await downloadVideo(segmentUrl, segmentPath);
+      segmentPaths.push(segmentPath);
+    }
+
+    const outputPath = path.join(videoDir, `${id}_higgsfield_stitched.mp4`);
+    await stitchVideos(segmentPaths, outputPath);
+    console.log(`[Higgsfield] Stitched ${totalSegments} segments into ${outputPath}`);
+    return outputPath;
+  } finally {
+    for (const filePath of segmentPaths) {
+      try { fs.unlinkSync(filePath); } catch {}
+    }
+  }
 }
