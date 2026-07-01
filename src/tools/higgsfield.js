@@ -150,6 +150,10 @@ function durationValue() {
   return String(Math.min(59, Math.max(20, Math.floor(parsed))));
 }
 
+function includeResolutionParam() {
+  return envValue("HIGGSFIELD_INCLUDE_RESOLUTION", "") === "true";
+}
+
 function modelParams(style, model) {
   const horror = style === "horror";
   const wanModel = /^wan2_/i.test(model);
@@ -161,7 +165,7 @@ function modelParams(style, model) {
     genre: wanModel ? "" : envValue("HIGGSFIELD_GENRE", horror ? "horror" : ""),
     mode: wanModel ? "" : envValue("HIGGSFIELD_MODE", "pro"),
     sound: wanModel ? "" : envValue("HIGGSFIELD_SOUND", "on"),
-    resolution: envValue("HIGGSFIELD_RESOLUTION", wanModel ? "720p" : ""),
+    resolution: includeResolutionParam() ? envValue("HIGGSFIELD_RESOLUTION", "720p") : "",
   };
 }
 
