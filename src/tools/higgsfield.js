@@ -15,6 +15,18 @@ export function isHiggsfieldConfigured() {
   return enabled();
 }
 
+async function ensureWorkspaceSelected() {
+  const workspaceId = process.env.HIGGSFIELD_WORKSPACE_ID || process.env.HF_WORKSPACE_ID;
+  if (!workspaceId) {
+    throw new Error("Higgsfield workspace is not configured. Set HIGGSFIELD_WORKSPACE_ID in Railway, then redeploy.");
+  }
+
+  await execFileAsync(cliPath(), ["workspace", "set", workspaceId], {
+    timeout: Number(process.env.HIGGSFIELD_WORKSPACE_TIMEOUT_MS || 30_000),
+    maxBuffer: 1024 * 1024,
+  });
+}
+
 function cleanText(value, maxLength = 1800) {
   return String(value || "")
     .replace(/[\u201c\u201d]/g, '"')
@@ -178,6 +190,7 @@ export async function generateHiggsfieldVideo({ script, hook, niche = "", style 
   pushParam(args, "resolution", params.resolution);
 
   console.log(`[Higgsfield] Generating ${style} video with ${model}...`);
+  await ensureWorkspaceSelected();
   const { stdout, stderr } = await execFileAsync(cliPath(), args, {
     timeout: Number(process.env.HIGGSFIELD_TIMEOUT_MS || 25 * 60 * 1000),
     maxBuffer: 20 * 1024 * 1024,
