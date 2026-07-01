@@ -15,12 +15,46 @@ export function isHiggsfieldConfigured() {
   return enabled();
 }
 
-async function ensureWorkspaceSelected() {
-  const workspaceId = process.env.HIGGSFIELD_WORKSPACE_ID || process.env.HF_WORKSPACE_ID;
-  if (!workspaceId) {
-    throw new Error("Higgsfield workspace is not configured. Set HIGGSFIELD_WORKSPACE_ID in Railway, then redeploy.");
-  }
+function extractWorkspaceId(output) {
+  const text = String(output || "").trim();
+  if (!text) return null;
 
+  try {
+    const parsed = JSON.parse(text);
+    const items = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed.workspaces)
+        ? parsed.workspaces
+        : Array.isArray(parsed.data)
+          ? parsed.data
+          : Array.isArray(parsed.items)
+            ? parsed.items
+            : [parsed];
+    const workspace = items.find((item) => item && (item.id || item.workspace_id || item.workspaceId || item.slug));
+    return workspace?.id || workspace?.workspace_id || workspace?.workspaceId || workspace?.slug || null;
+  } catch {}
+
+  const uuid = text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (uuid) return uuid[0];
+
+  const idLine = text.match(/(?:id|workspace)[\s:=]+([A-Za-z0-9_-]{6,})/i);
+  return idLine?.[1] || null;
+}
+
+async function listDefaultWorkspaceId() {
+  const { stdout, stderr } = await execFileAsync(cliPath(), ["workspace", "list", "--json", "--no-color"], {
+    timeout: Number(process.env.HIGGSFIELD_WORKSPACE_TIMEOUT_MS || 30_000),
+    maxBuffer: 4 * 1024 * 1024,
+  });
+  const workspaceId = extractWorkspaceId([stdout, stderr].filter(Boolean).join("\n"));
+  if (!workspaceId) {
+    throw new Error("Higgsfield workspace list did not return a usable workspace id.");
+  }
+  return workspaceId;
+}
+
+async function ensureWorkspaceSelected() {
+  const workspaceId = process.env.HIGGSFIELD_WORKSPACE_ID || process.env.HF_WORKSPACE_ID || await listDefaultWorkspaceId();
   await execFileAsync(cliPath(), ["workspace", "set", workspaceId], {
     timeout: Number(process.env.HIGGSFIELD_WORKSPACE_TIMEOUT_MS || 30_000),
     maxBuffer: 1024 * 1024,
