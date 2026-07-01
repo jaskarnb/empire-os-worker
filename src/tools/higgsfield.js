@@ -154,6 +154,12 @@ function includeResolutionParam() {
   return envValue("HIGGSFIELD_INCLUDE_RESOLUTION", "") === "true";
 }
 
+function selectedModel() {
+  const configured = envValue("HIGGSFIELD_VIDEO_MODEL", "wan2_7");
+  if (!configured || configured === "cinematic_studio_video_v2") return "wan2_7";
+  return configured;
+}
+
 function modelParams(style, model) {
   const horror = style === "horror";
   const wanModel = /^wan2_/i.test(model);
@@ -199,7 +205,7 @@ function extractVideoUrl(output) {
 export async function generateHiggsfieldVideo({ script, hook, niche = "", style = "dark" }) {
   if (!enabled()) throw new Error("HIGGSFIELD_ENABLED is not true");
 
-  const model = process.env.HIGGSFIELD_VIDEO_MODEL || "wan2_7";
+  const model = selectedModel();
   const timeout = process.env.HIGGSFIELD_WAIT_TIMEOUT || "20m";
   const interval = process.env.HIGGSFIELD_WAIT_INTERVAL || "5s";
   const prompt = stylePrompt({ script, hook, niche, style });
