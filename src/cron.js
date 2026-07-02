@@ -41,6 +41,25 @@ function writeCatchupState(value) {
   fs.writeFileSync(catchupStatePath(), JSON.stringify(value, null, 2));
 }
 
+function timeoutMs(name) {
+  const envName = `${name.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_TIMEOUT_MS`;
+  return Number(process.env[envName] || process.env.MEETING_TIMEOUT_MS || 4 * 60 * 1000);
+}
+
+async function withTimeout(promise, label, ms = timeoutMs(label)) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function channelId(channel) {
   return channel?.id || channel?._id || channel?.integrationId || null;
 }
@@ -129,8 +148,7 @@ async function scheduleVerifiedFallback(reason) {
 async function ensureQueueHasPost(reason) {
   if (getScheduledPosts(1).length > 0) return { status: "ok", reason: "already-scheduled" };
   try {
-    const result = await scheduleVerifiedFallback(reason);
-    return result;
+    return await scheduleVerifiedFallback(reason);
   } catch (error) {
     console.error(`[Cron] Verified fallback failed (${reason}):`, error.message);
     try {
@@ -147,6 +165,17 @@ async function ensureQueueHasPost(reason) {
   }
 }
 
+async function runMeetingStep({ label, meeting, verifier }) {
+  try {
+    await withTimeout(meeting(), `${label} meeting`);
+    await withTimeout(runVerifierAfterTask(verifier), `${label} verifier`, Number(process.env.VERIFIER_TIMEOUT_MS || 90_000));
+    return `${label} meeting passed`;
+  } catch (e) {
+    console.error(`[Cron] ${label} meeting crashed:`, e.message);
+    return `${label} meeting failed: ${e.message}`;
+  }
+}
+
 async function runAllMeetings(reason = "scheduled") {
   if (meetingsRunning) {
     console.log(`[Cron] Skipping ${reason}; meetings already running.`);
@@ -158,32 +187,9 @@ async function runAllMeetings(reason = "scheduled") {
   const results = [];
 
   try {
-    try {
-      await runDailyMeeting();
-      await runVerifierAfterTask("daily-meeting");
-      results.push("Daily meeting passed");
-    } catch (e) {
-      console.error("[Cron] Daily meeting crashed:", e.message);
-      results.push(`Daily meeting failed: ${e.message}`);
-    }
-
-    try {
-      await runBrainRotMeeting();
-      await runVerifierAfterTask("brainrot-meeting");
-      results.push("Brainrot meeting passed");
-    } catch (e) {
-      console.error("[Cron] Brain rot meeting crashed:", e.message);
-      results.push(`Brainrot meeting failed: ${e.message}`);
-    }
-
-    try {
-      await runKidsMeeting();
-      await runVerifierAfterTask("kids-meeting");
-      results.push("Kids meeting passed");
-    } catch (e) {
-      console.error("[Cron] Kids meeting crashed:", e.message);
-      results.push(`Kids meeting failed: ${e.message}`);
-    }
+    results.push(await runMeetingStep({ label: "Daily", meeting: runDailyMeeting, verifier: "daily-meeting" }));
+    results.push(await runMeetingStep({ label: "Brainrot", meeting: runBrainRotMeeting, verifier: "brainrot-meeting" }));
+    results.push(await runMeetingStep({ label: "Kids", meeting: runKidsMeeting, verifier: "kids-meeting" }));
 
     const fallbackResult = await ensureQueueHasPost(`meetings-finished:${reason}`);
     if (fallbackResult.status === "scheduled") {
@@ -209,11 +215,8 @@ async function runAllMeetings(reason = "scheduled") {
 }
 
 function standupEnabled() {
-  // Explicit opt-out wins
   if (process.env.AUTO_STANDUP === "false") return false;
-  // Explicit opt-in
   if (process.env.AUTO_STANDUP === "true") return true;
-  // Auto-enable when fully configured: Higgsfield + Postiz key + spend budget
   const higgsfieldOn = process.env.HIGGSFIELD_ENABLED === "true";
   const postizSet = Boolean(process.env.POSTIZ_API_KEY);
   const budgetSet = Number(process.env.DAILY_SPEND_LIMIT_USD || 0) > 0;
