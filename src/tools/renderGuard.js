@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 
 const execFileAsync = promisify(execFile);
+const MIN_VIDEO_DURATION_SECONDS = Number(process.env.MIN_VIDEO_DURATION_SECONDS || 20);
 
 async function ffprobeJson(filePath) {
   const { stdout } = await execFileAsync("ffprobe", [
@@ -17,7 +18,7 @@ async function ffprobeJson(filePath) {
 }
 
 export async function assertRenderableVideo(filePath, options = {}) {
-  const minDuration = options.minDuration ?? 8;
+  const minDuration = options.minDuration ?? MIN_VIDEO_DURATION_SECONDS;
   const requireAudio = options.requireAudio ?? true;
   const requireVertical = options.requireVertical ?? true;
 
@@ -57,5 +58,6 @@ export async function assertRenderableVideo(filePath, options = {}) {
     height,
     duration,
     hasAudio: Boolean(audio),
+    minDuration,
   };
 }
