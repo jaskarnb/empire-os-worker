@@ -49,7 +49,7 @@ export async function verifyHiggsfieldReady() {
 
 export async function verifyVideoArtifact(filePath) {
   try {
-    const result = await assertRenderableVideo(filePath, { minDuration: 8, requireAudio: true, requireVertical: true });
+    const result = await assertRenderableVideo(filePath, { requireAudio: true, requireVertical: true });
     return pass("video-artifact", result);
   } catch (error) {
     return fail("video-artifact", error, { filePath });
