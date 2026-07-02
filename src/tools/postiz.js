@@ -123,7 +123,7 @@ export async function uploadMedia(filePath) {
     return res.json();
   }
 
-  await assertRenderableVideo(filePath, { minDuration: 8, requireAudio: true, requireVertical: true });
+  await assertRenderableVideo(filePath, { requireAudio: true, requireVertical: true });
 
   const fileBuffer = fs.readFileSync(filePath);
   const fileName = path.basename(filePath);
