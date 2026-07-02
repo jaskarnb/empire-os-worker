@@ -4,9 +4,22 @@ import path from "path";
 const INCIDENT_DIR = process.env.INCIDENT_DIR || "./output/incidents";
 const INCIDENT_FILE = path.resolve(INCIDENT_DIR, "ops-incidents.jsonl");
 const REPORT_FILE = path.resolve(INCIDENT_DIR, "ops-last-report.json");
+const DEFAULT_ACTIVE_INCIDENT_HOURS = 24;
 
 function ensureDir() {
   fs.mkdirSync(INCIDENT_DIR, { recursive: true });
+}
+
+function activeIncidentWindowMs() {
+  const hours = Number(process.env.ACTIVE_INCIDENT_HOURS || DEFAULT_ACTIVE_INCIDENT_HOURS);
+  const safeHours = Number.isFinite(hours) && hours > 0 ? hours : DEFAULT_ACTIVE_INCIDENT_HOURS;
+  return safeHours * 60 * 60 * 1000;
+}
+
+function isActiveIncident(incident, now = Date.now()) {
+  const ts = Date.parse(incident?.ts || "");
+  if (!Number.isFinite(ts)) return true;
+  return now - ts <= activeIncidentWindowMs();
 }
 
 export function makeIncident({ agent, severity = "P3", service = "worker", problem, evidence = [], recommendedOwner = "Codex", recommendedAction = "Inspect logs and patch the failing component" }) {
@@ -49,7 +62,7 @@ export function readLastOpsReport() {
   }
 }
 
-export function readRecentIncidents(limit = 50) {
+export function readIncidentHistory(limit = 50) {
   try {
     if (!fs.existsSync(INCIDENT_FILE)) return [];
     return fs.readFileSync(INCIDENT_FILE, "utf8")
@@ -66,4 +79,11 @@ export function readRecentIncidents(limit = 50) {
       evidence: [error.message],
     })];
   }
+}
+
+export function readRecentIncidents(limit = 50) {
+  const now = Date.now();
+  return readIncidentHistory(limit * 3)
+    .filter((incident) => isActiveIncident(incident, now))
+    .slice(-limit);
 }
