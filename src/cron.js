@@ -13,9 +13,12 @@ import { runKidsMeeting } from "./agents/kidsMeeting.js";
 import { runVerifierAfterTask } from "./agents/verifier.js";
 import { runOpsWatchers } from "./watchers/opsWatchers.js";
 import { notifySlack } from "./tools/slackNotify.js";
-import { getScheduledPosts, getSpendState, isAutomationPaused } from "./tools/opsState.js";
+import { getChannels, schedulePost } from "./tools/postiz.js";
+import { generateVideo } from "./tools/videoGen.js";
+import { getScheduledPosts, getSpendState, isAutomationPaused, recordScheduledPost } from "./tools/opsState.js";
 
 let meetingsRunning = false;
+let fallbackRunning = false;
 
 function stateDir() {
   return path.resolve(process.env.OPS_STATE_DIR || "./output/ops");
@@ -36,6 +39,112 @@ function readCatchupState() {
 function writeCatchupState(value) {
   fs.mkdirSync(stateDir(), { recursive: true });
   fs.writeFileSync(catchupStatePath(), JSON.stringify(value, null, 2));
+}
+
+function channelId(channel) {
+  return channel?.id || channel?._id || channel?.integrationId || null;
+}
+
+function channelName(channel) {
+  return channel?.name || channel?.username || channel?.identifier || channelId(channel) || "Empire OS Channel";
+}
+
+function fallbackPostFor(channel) {
+  const name = channelName(channel);
+  const lower = name.toLowerCase();
+  if (/alibi|horror|scary|crime|mystery/.test(lower)) {
+    return {
+      title: "The Porch Light Glitch",
+      niche: "True crime, cold cases, mystery storytelling, non-graphic suspense, eerie found-footage horror",
+      style: "horror",
+      hook: "The porch camera caught this first",
+      script: "The porch camera caught this first. At 2:13 in the morning, the light turned on by itself, even though the switch inside was off. Then the camera audio picked up one soft knock, followed by a whisper that sounded like the homeowner's name. When the family checked the footage, nobody was standing there. But one frame showed a shadow stretching across the door from inside the house. The strangest part is what happened next. The camera cut out for exactly seven seconds, and when it came back, the door was already open.",
+      caption: "The camera missed the worst seven seconds.\nWould you check the door?\n#scary #horror #mystery #creepy #fyp",
+    };
+  }
+  if (/tech|brain|meme|talk/.test(lower)) {
+    return {
+      title: "AI Learns Group Chat",
+      niche: "Gen Z brainrot videos, chaotic meme storytelling, absurd internet humor, fast visual jokes, and viral TikTok-style comedy",
+      style: "brainrot",
+      hook: "The AI entered the group chat",
+      script: "The AI entered the group chat and immediately tried to be normal. First it said hello with perfect punctuation, which was already suspicious. Then somebody sent one blurry meme, and the AI responded with a three paragraph emotional analysis. The chat went silent. So it tried again, posted a dancing toaster, and accidentally became the funniest person there. By the end, everyone was asking it for advice, but the AI only replied with one sentence: I have become the algorithm.",
+      caption: "It adapted way too fast.\nThe algorithm is awake.\n#brainrot #memes #genz #aitok #fyp",
+    };
+  }
+  return {
+    title: "Rainbow Rescue Race",
+    niche: "Kids-safe cheerful animated stories, bright funny characters, simple adventures, colors, jokes, and playful lessons for ages 4-8",
+    style: "kids",
+    hook: "Can you spot the rainbow key",
+    script: "Can you spot the rainbow key? Benny the little bear found a tiny door in the garden, but it would only open with the right color. First he tried red, and the flowers clapped. Then he tried blue, and the puddle giggled. Finally, a yellow butterfly showed him a rainbow key hiding behind a leaf. Benny opened the door and found a picnic for all his friends. Count the colors with Benny, then wave goodbye before the door sparkles shut.",
+    caption: "A cheerful color hunt for little explorers.\nCan you name every color?\n#kidsvideo #learncolors #storytime #funforkids #animation",
+  };
+}
+
+async function scheduleVerifiedFallback(reason) {
+  if (fallbackRunning) return { status: "skipped", reason: "fallback-running" };
+  if (getScheduledPosts(1).length > 0) return { status: "skipped", reason: "already-scheduled" };
+
+  fallbackRunning = true;
+  try {
+    const channels = await getChannels();
+    const schedulable = channels.filter((channel) => channelId(channel));
+    if (!schedulable.length) throw new Error("No schedulable Postiz channel found for fallback");
+
+    const channel = schedulable.find((item) => /alibi|horror|scary|crime|mystery/i.test(channelName(item))) || schedulable[0];
+    const post = fallbackPostFor(channel);
+    const scheduleAt = new Date(Date.now() + Number(process.env.FALLBACK_SCHEDULE_DELAY_MINUTES || 35) * 60 * 1000).toISOString();
+
+    console.log(`[Cron] Running verified fallback post for ${channelName(channel)} (${reason})...`);
+    const videoPath = await generateVideo({
+      script: post.script,
+      hook: post.hook,
+      niche: post.niche,
+      style: post.style,
+    });
+    const postiz = await schedulePost({
+      integrationId: channelId(channel),
+      content: post.caption,
+      date: scheduleAt,
+      mediaPath: videoPath,
+      requireMedia: true,
+    });
+    recordScheduledPost({
+      title: post.title,
+      channelName: channelName(channel),
+      integrationId: channelId(channel),
+      scheduledFor: scheduleAt,
+      postiz,
+      videoPath,
+      niche: post.niche,
+    });
+    console.log(`[Cron] Verified fallback scheduled at ${scheduleAt}`);
+    return { status: "scheduled", title: post.title, channel: channelName(channel), scheduledFor: scheduleAt, videoPath };
+  } finally {
+    fallbackRunning = false;
+  }
+}
+
+async function ensureQueueHasPost(reason) {
+  if (getScheduledPosts(1).length > 0) return { status: "ok", reason: "already-scheduled" };
+  try {
+    const result = await scheduleVerifiedFallback(reason);
+    return result;
+  } catch (error) {
+    console.error(`[Cron] Verified fallback failed (${reason}):`, error.message);
+    try {
+      await notifySlack({
+        title: "Verified fallback failed",
+        level: "urgent",
+        message: error.message,
+        url: `${process.env.PUBLIC_WORKER_URL || ""}/ops/dashboard`,
+      });
+    } catch (slackError) {
+      console.error("[Slack] Fallback failure notification failed:", slackError.message);
+    }
+    return { status: "failed", error: error.message };
+  }
 }
 
 async function runAllMeetings(reason = "scheduled") {
@@ -74,6 +183,11 @@ async function runAllMeetings(reason = "scheduled") {
     } catch (e) {
       console.error("[Cron] Kids meeting crashed:", e.message);
       results.push(`Kids meeting failed: ${e.message}`);
+    }
+
+    const fallbackResult = await ensureQueueHasPost(`meetings-finished:${reason}`);
+    if (fallbackResult.status === "scheduled") {
+      results.push(`Verified fallback scheduled: ${fallbackResult.title}`);
     }
 
     try {
@@ -133,14 +247,19 @@ async function runQueueCatchup(reason) {
   const minHours = Number(process.env.CATCHUP_MIN_INTERVAL_HOURS || 6);
   const minMs = Math.max(1, minHours) * 60 * 60 * 1000;
   const lastStartedAt = Date.parse(state.lastStartedAt || 0) || 0;
-  if (lastStartedAt && now - lastStartedAt < minMs) {
-    console.log(`[Cron] Queue catch-up skipped (${reason}); last attempt was less than ${minHours}h ago.`);
+  const lastFinishedAt = Date.parse(state.lastFinishedAt || 0) || 0;
+  const staleRunningMs = Number(process.env.CATCHUP_STALE_RUNNING_MINUTES || 20) * 60 * 1000;
+  const isStillRunning = lastStartedAt && !lastFinishedAt && now - lastStartedAt < staleRunningMs;
+  const recentlyFinished = lastFinishedAt && now - lastFinishedAt < minMs;
+  if (isStillRunning || recentlyFinished) {
+    console.log(`[Cron] Queue catch-up skipped (${reason}); recent attempt still within guard window.`);
     return;
   }
 
   writeCatchupState({
     ...state,
     lastStartedAt: new Date().toISOString(),
+    lastFinishedAt: null,
     reason,
   });
 
