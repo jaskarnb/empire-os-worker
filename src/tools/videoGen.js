@@ -19,8 +19,10 @@ function resolveStyle({ niche = "", style = "auto" } = {}) {
   if (requested && requested !== "auto") return requested;
   const lower = niche.toLowerCase();
   if (HORROR_TERMS.some((term) => lower.includes(term))) return "horror";
+  if (["beauty", "skincare", "makeup", "glow", "glam", "cosmetic", "serum", "foundation"].some((term) => lower.includes(term))) return "beauty";
   if (["meme", "brainrot", "gen z", "skibidi", "ohio", "rizz", "npc"].some((term) => lower.includes(term))) return "brainrot";
   if (["kids", "children", "toddler", "nursery", "roblox", "minecraft"].some((term) => lower.includes(term))) return "kids";
+  if (["ai", "productivity", "automation", "finance", "money", "business", "side hustle", "tools", "students", "creator"].some((term) => lower.includes(term))) return "faceless-reels";
   return "dark";
 }
 
@@ -80,7 +82,7 @@ function assEscape(text) {
 function captionChunks(script, style = "dark") {
   const words = wordsOf(script);
   const chunks = [];
-  const size = style === "horror" || style === "brainrot" ? 4 : 5;
+  const size = style === "horror" || style === "brainrot" || style === "faceless-reels" ? 4 : 5;
   for (let i = 0; i < words.length; i += size) {
     chunks.push(words.slice(i, i + size).join(" "));
   }
@@ -99,7 +101,7 @@ function writeSubtitleFile({ subtitlePath, script, duration, style }) {
     return `Dialogue: 0,${assTime(start)},${assTime(end)},Caption,,0,0,0,,${assEscape(chunk).toUpperCase()}`;
   });
 
-  const fontSize = style === "horror" ? 62 : style === "brainrot" ? 76 : 68;
+  const fontSize = style === "horror" ? 62 : style === "brainrot" ? 76 : style === "faceless-reels" ? 72 : 68;
   const primary = style === "horror" ? "&H00F5F5EB" : style === "kids" ? "&H00FFFFFF" : "&H00FFFFFF";
   const outline = style === "horror" ? "&H00000000" : "&H00101010";
   const shadow = style === "horror" ? 0 : 2;
@@ -176,6 +178,16 @@ function voiceProfile({ style, voice }) {
       label: "cheerful kids",
       voice: process.env.KIDS_TTS_VOICE || "en-US-AnaNeural",
       rate: process.env.KIDS_TTS_RATE || "-8%",
+    },
+    beauty: {
+      label: "confident beauty creator",
+      voice: process.env.BEAUTY_TTS_VOICE || "en-US-AriaNeural",
+      rate: process.env.BEAUTY_TTS_RATE || "+5%",
+    },
+    "faceless-reels": {
+      label: "polished faceless reels narrator",
+      voice: process.env.FACELESS_REELS_TTS_VOICE || "en-US-AriaNeural",
+      rate: process.env.FACELESS_REELS_TTS_RATE || "+8%",
     },
   };
   const fallback = profiles.dark;
@@ -365,6 +377,13 @@ export async function generateVideo({ script, hook, niche = "", style = "auto", 
   const safeScript = cleanText(script || hook, 1200);
   if (!safeScript) throw new Error("No script text supplied");
   const resolvedStyle = resolveStyle({ niche, style });
+
+  // Stock footage pipeline for faceless reel-style videos, horror, kids, and beauty.
+  // Takes priority over Higgsfield when PEXELS_API_KEY is configured
+  if (["horror", "kids", "beauty", "faceless-reels"].includes(resolvedStyle) && process.env.PEXELS_API_KEY) {
+    const { generateStockFootageVideo } = await import("./stockVideoGen.js");
+    return generateStockFootageVideo({ script: safeScript, hook, niche, style: resolvedStyle, voice });
+  }
 
   if (isHiggsfieldConfigured()) {
     const estimatedCost = Number(process.env.HIGGSFIELD_RENDER_COST_USD || 0.35);

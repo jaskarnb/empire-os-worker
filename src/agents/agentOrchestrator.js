@@ -13,111 +13,110 @@ function clean(value, max = 1000) {
 
 function audienceFromNiche(niche = "") {
   const lower = niche.toLowerCase();
-  if (/(kids|children|toddler|nursery|roblox|minecraft)/.test(lower)) return "kids";
-  if (/(brainrot|meme|gen z|skibidi|ohio|rizz|npc)/.test(lower)) return "teen";
+  if (/(kids|children|toddler|nursery|roblox|minecraft|vaultrise)/.test(lower)) return "kids";
+  if (/(brainrot|meme|gen z|skibidi|ohio|rizz|npc|techtaks)/.test(lower)) return "teen";
   return "general";
 }
 
 function styleFromNiche(niche = "") {
   const lower = niche.toLowerCase();
-  if (/(horror|scary|creepy|paranormal|haunting|true crime|cold case|mystery)/.test(lower)) return "horror";
-  if (/(kids|children|toddler|nursery|roblox|minecraft)/.test(lower)) return "kids";
-  if (/(brainrot|meme|gen z|skibidi|ohio|rizz|npc)/.test(lower)) return "brainrot";
+  if (/(horror|scary|creepy|paranormal|haunting|true crime|cold case|mystery|beyondthealibi|alibi)/.test(lower)) return "horror";
+  if (/(kids|children|toddler|nursery|roblox|minecraft|vaultrise)/.test(lower)) return "kids";
+  if (/(brainrot|meme|gen z|skibidi|ohio|rizz|npc|techtaks)/.test(lower)) return "brainrot";
+  if (/(ai|productivity|automation|finance|money|business|side hustle|tools|students|creator|fitness)/.test(lower)) return "faceless-reels";
   return "dark";
 }
 
 function voiceDirection(style, audience) {
-  if (style === "horror") return "mix formats: low suspense narration for 35-59 second scary stories, and minimal voice with sharp sound design for 20-30 second jump-scare clips";
+  if (style === "horror") return "slow suspense voice, low-energy delivery, leave silence for tension";
   if (audience === "kids" || style === "kids") return "cheerful safe voice, simple words, bright pacing";
   if (style === "brainrot") return "fast energetic voice, punchy captions, no dead air";
+  if (style === "faceless-reels") return "polished faceless narrator, quick but clear, high trust, no dead air";
   return "clear creator voice, confident and conversational";
-}
-
-function formatMix(style) {
-  if (style === "horror") {
-    return [
-      {
-        id: "short-jump-scare",
-        targetLength: "20-30 seconds",
-        cadence: "most posts",
-        direction: "One scary caught-on-camera moment with setup, quiet tension, a strong platform-safe jump scare, and a short aftermath beat. Never make it feel like a tiny preview.",
-      },
-      {
-        id: "long-scary-story",
-        targetLength: "35-59 seconds",
-        cadence: "regular rotation",
-        direction: "A longer narrated horror story with readable captions, unsettling sound, slow buildup, visual escalation, one or two scares, and a clear final payoff.",
-      },
-    ];
-  }
-  if (style === "kids") {
-    return [{ id: "cheerful-story", targetLength: "20-59 seconds", cadence: "default", direction: "Bright motion, cheerful voice, simple captions, safe joke or payoff, complete mini-story, no scary beats." }];
-  }
-  if (style === "brainrot") {
-    return [{ id: "fast-chaos", targetLength: "20-59 seconds", cadence: "default", direction: "Fast motion, loud retention beats, meme pacing, exaggerated captions, coherent joke story, and no dead air." }];
-  }
-  return [{ id: "complete-short", targetLength: "20-59 seconds", cadence: "default", direction: "Motion-first short with hook, escalation, payoff, captions, and platform-native pacing." }];
-}
-
-function researchRule(style) {
-  const base = "Every content run must start by studying active creators in the same niche, extracting winning formats, hooks, pacing, sounds, captions, thumbnails/first frames, posting cadence, and comment signals. Use these as inspiration only; never copy footage, logos, exact captions, voiceovers, or creator identity.";
-  if (style === "horror") return `${base} For horror, compare 20-30 second jump-scare clips against 35-59 second scary-story videos and choose a mix based on what is working now.`;
-  if (style === "kids") return `${base} For kids content, only use safe, age-appropriate, cheerful references and avoid scary or risky behavior.`;
-  if (style === "brainrot") return `${base} For brainrot, track meme velocity, pacing, caption style, and sound patterns while keeping content platform-safe and understandable.`;
-  return base;
-}
-
-function postingTimeRule(style) {
-  const base = "Prioritize TikTok and Instagram Reels over YouTube Shorts while the channel mix is being tested. Schedule in the user's America/Indianapolis timezone. Start with 11:30 AM-1:30 PM and 6:30 PM-10:30 PM test windows, stagger posts at least 90 minutes apart per account, avoid dumping many posts at once, and let analytics replace these defaults after enough data.";
-  if (style === "horror") return `${base} Horror should favor evening and late-night windows first, especially 7:30 PM-11:30 PM, with 20-30 second jump-scare clips and 35-59 second story videos mixed across separate slots.`;
-  if (style === "kids") return `${base} Kids-safe content should favor after-school and early evening windows, avoid late-night posting as the primary test slot.`;
-  if (style === "brainrot") return `${base} Brainrot can test after-school, evening, and late-night windows because teen/meme behavior may spike later.`;
-  return base;
 }
 
 function higgsfieldPromptTemplate({ niche, style, referenceAnalysis }) {
   const visual = referenceAnalysis.visualLanguage?.join("; ") || "cinematic vertical social video";
   const pacing = referenceAnalysis.pacingNotes?.join("; ") || "hook fast, keep motion throughout, clear payoff";
   if (style === "horror") {
-    return clean(`Realistic caught-on-camera horror footage for this niche: ${niche}.
-Target runtime: 20-59 seconds. Never make it shorter than 20 seconds.
-Rotate between two winning formats:
-1. Short jump-scare clip, 20-30 seconds: setup, silence, sudden scary reveal, frightening sound hit, and a short aftermath beat.
-2. Longer scary story, 35-59 seconds: suspense narration, readable captions, eerie sound, buildup, escalation, scare payoff, and final unsettling ending.
-Found footage aesthetic. 9:16 vertical. Real camera motion. No static slideshow.
-No copyrighted characters. No graphic gore. No unsafe harm. Platform-safe scare content.
-Script must have setup, escalation, payoff, and ending. Visuals must match the script beat by beat.
+    return clean(`Realistic caught-on-camera footage for this niche: ${niche}.
+Handheld phone camera moving through a dark hallway at night.
+Shaky motion, motion blur. Person hears something, turns corner, sudden horrifying reveal.
+Cinematic tension build, scary voice, silence before the reveal, and one clear jump scare. Found footage aesthetic. 9:16 vertical. No CGI monsters.
+No copyrighted characters. No graphic gore. Scary atmosphere, rising dread, clear payoff.
+Genre: horror. Sound on.
+Final video must be 20-59 seconds and so high-retention viewers want to keep watching and rewatch it.
+Script must have clear setup, escalation, payoff, and ending. Add tension and a clean jump scare for horror, without gore.
 Reference-inspired visual language: ${visual}.
 Reference-inspired pacing: ${pacing}.
 Use the reusable patterns, but do not copy creator footage, logos, copyrighted characters, or exact wording from references.`, 1600);
   }
+  if (style === "faceless-reels") {
+    return clean(`Create a polished faceless short-form reel for this niche: ${niche}.
+Use a high-quality faceless-reel format: cinematic b-roll, phone/laptop/desk/lifestyle shots, quick cuts, bold captions, and a clear useful payoff.
+The first second must stop the scroll, then every 3-5 seconds should introduce a new visual beat.
+Avoid face-to-camera presenter shots, copied templates, logos, watermarks, exact creator wording, or reused footage.
+Final video must be 20-59 seconds, vertical 9:16, modern, sharp, and rewatchable.
+Script must have a clear setup, escalation, practical takeaway or twist, and ending.
+Reference-inspired visual language: ${visual}.
+Reference-inspired pacing: ${pacing}.
+Use reusable category patterns only; do not clone any proprietary Faceless Reels template or creator video.`, 1600);
+  }
   return clean(`Create a vertical 9:16 ${style} short-form video for this niche: ${niche}.
-Target runtime: 20-59 seconds. Never make it shorter than 20 seconds.
 It must be real video motion, not a slideshow or static image.
 Visual language: ${visual}.
 Pacing: ${pacing}.
-Use a strong first 1-2 seconds, continuous motion, readable captions, niche-matched sound/voice, and a clear payoff.
-Script must have setup, escalation, payoff, and ending. Visuals must match the script beat by beat.
-Match the quality bar from the horror format work: entertaining, visual, retention-first, and native to TikTok/Reels/Shorts.
+Use a strong first 1-2 seconds, continuous motion, readable captions, and a clear payoff.
+Final video must be 20-59 seconds and so entertaining for the account niche that viewers want to keep watching and rewatch it.
+Script must have clear setup, escalation, payoff, and ending. No random words or confusing sentence jumps.
 Do not copy creator footage, logos, copyrighted characters, or exact wording from references.`, 1600);
 }
 
 function assignments({ niche, style, audience, referenceAnalysis, spend }) {
   const spendBlocked = spend.enforced && spend.remaining !== null && spend.remaining <= 0;
-  const horrorFormatNote = style === "horror" ? " Rotate formats between 20-30 second jump scares and 35-59 second narrated scary stories with captions and scary sound." : " Follow the same quality bar as horror: 20-59 seconds, motion-first, entertaining, coherent, niche-matched sound/voice, not static caption posts.";
-  const researchNote = ` Required first step: study active creators and recent posts in ${niche}; identify what is working, then make similar-format original videos without copying protected assets or exact wording.`;
-  const timingNote = ` Posting timing rule: ${postingTimeRule(style)}`;
   return [
-    { agent: "trend-radar", task: `Scan current platform trends, sounds, formats, and audience behavior for ${niche}.${researchNote}`, output: "trendBrief, urgentOpportunities, trendRisk", status: "required-first" },
-    { agent: "competitor-tracker", task: `Track niche creators/pages and summarize repeatable winners: hooks, pacing, video length, captions, sounds, posting frequency, and comments.${researchNote}`, output: "competitorBrief, winningFormats, postingPatterns, contentGaps", status: "required-first" },
-    { agent: "reference-analyst", task: "Extract reusable patterns from creator references and update the style notes. Focus on why viewers keep watching, not copying the source." + horrorFormatNote, output: "winningPatterns, pacingNotes, visualLanguage, captionStyle, doNotCopy", status: referenceAnalysis.references.length ? "ready" : "ready-needs-creator-research" },
-    { agent: "content-strategist", task: `Create original ${niche} video concepts from trend, competitor, and reference findings.${horrorFormatNote}`, output: "3 video concepts with hook, payoff, and caption angle", status: "after-research" },
-    { agent: "hook-writer", task: "Write retention-first hooks and script beats using the winning structures found by research, while changing topic, wording, and visuals enough to be original." + horrorFormatNote, output: "hook, scriptBeats, caption, hashtags", status: "after-research" },
-    { agent: "higgsfield-director", task: `Generate Higgsfield prompts for ${style} videos and keep them ${audience}-safe. Convert winning creator patterns into original scenes, camera moves, sounds, and pacing.${horrorFormatNote}`, output: "higgsfieldPrompt, modelSettings, negativePrompt", status: spendBlocked ? "blocked-by-budget" : "after-script" },
-    { agent: "quality-gate", task: "Reject weak/static/unsafe videos before posting. Require real motion, readable captions when used, niche-matched sound, 20-59 second runtime, coherent story flow, script-matched visuals, and no static image posts. Also reject anything too close to a creator reference.", output: "pass/fail plus regeneration notes", status: "required" },
-    { agent: "schedule-optimizer", task: `Choose the best TikTok/Instagram posting windows for each approved video, account, and niche.${timingNote}`, output: "scheduleTimes, cadence, postingPriority", status: "after-quality-pass-before-posting" },
-    { agent: "posting-operator", task: `Schedule only approved Higgsfield videos through Postiz at the schedule-optimizer's selected times.${timingNote}`, output: "postizResult and scheduled memory", status: "after-schedule-optimizer" },
-    { agent: "analytics-agent", task: "Feed performance back into niche, creator research targets, format length, hook, sound, posting time, and scare/payoff choices.", output: "winnerPatterns, loserPatterns, nextTests", status: "after-publishing" },
+    {
+      agent: "reference-analyst",
+      task: "Extract reusable patterns from the provided references and update the style notes.",
+      output: "winningPatterns, pacingNotes, visualLanguage, captionStyle, doNotCopy",
+      status: referenceAnalysis.references.length ? "ready" : "waiting-for-references",
+    },
+    {
+      agent: "content-strategist",
+      task: `Create original ${niche} video concepts that use the patterns without copying.`,
+      output: "3 video concepts with hook, payoff, and caption angle",
+      status: "ready",
+    },
+    {
+      agent: "hook-writer",
+      task: "Write retention-first hooks and script beats for a coherent 20-59 second video.",
+      output: "hook, scriptBeats, caption, hashtags",
+      status: "ready",
+    },
+    {
+      agent: "higgsfield-director",
+      task: `Generate Higgsfield prompts for ${style} videos and keep them ${audience}-safe.`,
+      output: "higgsfieldPrompt, modelSettings, negativePrompt",
+      status: spendBlocked ? "blocked-by-budget" : "ready",
+    },
+    {
+      agent: "quality-gate",
+      task: "Reject weak/static/unsafe/off-niche videos before posting, including videos outside the 20-59 second target or scripts without real story flow.",
+      output: "pass/fail plus regeneration notes",
+      status: "required",
+    },
+    {
+      agent: "posting-operator",
+      task: "Schedule only approved Higgsfield videos through Postiz.",
+      output: "postizResult and scheduled memory",
+      status: "after-quality-pass",
+    },
+    {
+      agent: "analytics-agent",
+      task: "Feed performance back into niche and hook choices.",
+      output: "winnerPatterns, loserPatterns, nextTests",
+      status: "after-publishing",
+    },
   ];
 }
 
@@ -129,11 +128,20 @@ function recommendedSquads(style, niche) {
   else if (style === "brainrot") wanted.unshift("brainrot-video-production");
   else wanted.unshift("horror-video-production");
 
-  if (/(money|finance|business|affiliate|revenue|product|offer)/i.test(niche)) wanted.push("monetization");
+  if (/(money|finance|business|affiliate|revenue|product|offer)/i.test(niche)) {
+    wanted.push("monetization");
+  }
+
   return squads.filter((squad) => wanted.includes(squad.id));
 }
 
-export function createAgentBriefing({ niche = "horror caught-on-camera short-form videos", style = "auto", platform = "TikTok/Reels/Shorts", references = [], goal = "make high-retention videos" } = {}) {
+export function createAgentBriefing({
+  niche = "horror caught-on-camera short-form videos",
+  style = "auto",
+  platform = "TikTok/Reels/Shorts",
+  references = [],
+  goal = "make high-retention videos",
+} = {}) {
   const resolvedStyle = style === "auto" ? styleFromNiche(niche) : style;
   const audience = audienceFromNiche(niche);
   const referenceAnalysis = analyzeReferenceVideos({ references, niche, style: resolvedStyle });
@@ -151,16 +159,18 @@ export function createAgentBriefing({ niche = "horror caught-on-camera short-for
     niche,
     style: resolvedStyle,
     audience,
-    productionRule: "Higgsfield only. Videos must be 20-59 seconds, coherent, niche-correct, visually matched to the script, and high-retention. If Higgsfield fails or quality fails, skip posting.",
-    researchRule: researchRule(resolvedStyle),
-    postingTimeRule: postingTimeRule(resolvedStyle),
-    formatMix: formatMix(resolvedStyle),
+    productionRule: "Higgsfield only. Videos must be 20-59 seconds, niche-correct, full of motion, visually matched to the script, and entertaining enough to make viewers keep watching and rewatch. Scripts need setup, escalation, payoff, and ending. If Higgsfield fails or quality fails, skip posting.",
     voiceDirection: voiceDirection(resolvedStyle, audience),
     higgsfieldPromptTemplate: promptTemplate,
     referenceAnalysis,
     assignments: assignments({ niche, style: resolvedStyle, audience, referenceAnalysis, spend }),
     recommendedSquads: recommendedSquads(resolvedStyle, niche),
-    controls: { spend, scheduledPosts: scheduledPosts.length, analyticsSnapshots: analytics.length, nicheScoutTop: nicheScout.recommendations?.slice(0, 5) || [] },
+    controls: {
+      spend,
+      scheduledPosts: scheduledPosts.length,
+      analyticsSnapshots: analytics.length,
+      nicheScoutTop: nicheScout.recommendations?.slice(0, 5) || [],
+    },
     availableAgents: listAgents(),
   };
 }
