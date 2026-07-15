@@ -188,6 +188,28 @@ function fallbackPostFor(channel) {
   return pool[index];
 }
 
+function selectFallbackChannel(channels) {
+  const history = getScheduledPosts(100);
+  const counts = new Map();
+  for (const post of history) {
+    const key = String(post.channelName || "").toLowerCase();
+    if (key) counts.set(key, (counts.get(key) || 0) + 1);
+  }
+
+  const ranked = channels
+    .map((channel) => {
+      const name = channelName(channel);
+      return { channel, name, count: counts.get(name.toLowerCase()) || 0 };
+    })
+    .sort((a, b) => a.count - b.count || a.name.localeCompare(b.name));
+
+  if (!ranked.length) return null;
+  const lowestCount = ranked[0].count;
+  const leastTested = ranked.filter((item) => item.count === lowestCount);
+  const index = Math.floor(Date.now() / (60 * 60 * 1000)) % leastTested.length;
+  return leastTested[index].channel;
+}
+
 async function scheduleVerifiedFallback(reason) {
   if (fallbackRunning) return { status: "skipped", reason: "fallback-running" };
   if (getUpcomingScheduledPosts(1).length > 0) return { status: "skipped", reason: "already-scheduled" };
@@ -198,7 +220,7 @@ async function scheduleVerifiedFallback(reason) {
     const schedulable = channels.filter((channel) => channelId(channel));
     if (!schedulable.length) throw new Error("No schedulable Postiz channel found for fallback");
 
-    const channel = schedulable.find((item) => /alibi|horror|scary|crime|mystery/i.test(channelName(item))) || schedulable[0];
+    const channel = selectFallbackChannel(schedulable) || schedulable[0];
     const post = fallbackPostFor(channel);
     const scheduleAt = new Date(Date.now() + Number(process.env.FALLBACK_SCHEDULE_DELAY_MINUTES || 35) * 60 * 1000).toISOString();
 

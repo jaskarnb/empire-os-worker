@@ -316,6 +316,7 @@ export async function runKidsMeeting() {
           niche: config.niche,
           style: "kids",
           voice: "en-US-AnaNeural",
+          allowLocalFallback: true,
         });
         const postiz = await schedulePost({ integrationId: ch.id, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
         recordScheduledPost({ title: post.title, channelName: name, integrationId: ch.id, scheduledFor: date, postiz, videoPath, niche: config.niche });

@@ -274,7 +274,13 @@ export async function runDailyMeeting() {
       try {
         assertPolicySafePost({ post, channelName: name, audience: "general", niche: config.niche });
         assertContentQuality({ post, niche: config.niche, audience: "general" });
-        videoPath = await generateVideo({ script: post.script || post.caption, hook: post.hook, niche: config.niche, style: config.style || "dark" });
+        videoPath = await generateVideo({
+          script: post.script || post.caption,
+          hook: post.hook,
+          niche: config.niche,
+          style: config.style || "dark",
+          allowLocalFallback: true,
+        });
         console.log(`[Nova] Scheduling video at ${date}...`);
         const usesStockStyle = ["horror", "beauty", "kids", "faceless-reels"].includes(config.style || "dark") && process.env.PEXELS_API_KEY;
         const content = usesStockStyle ? addPexelsAttribution(post.caption) : post.caption;
