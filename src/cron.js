@@ -125,12 +125,26 @@ async function scheduleVerifiedFallback(reason) {
     const scheduleAt = new Date(Date.now() + Number(process.env.FALLBACK_SCHEDULE_DELAY_MINUTES || 35) * 60 * 1000).toISOString();
 
     console.log(`[Cron] Running verified fallback post for ${channelName(channel)} (${reason})...`);
-    const videoPath = await generateVideo({
-      script: post.script,
-      hook: post.hook,
-      niche: post.niche,
-      style: post.style,
-    });
+    let videoPath;
+    try {
+      videoPath = await generateVideo({
+        script: post.script,
+        hook: post.hook,
+        niche: post.niche,
+        style: post.style,
+      });
+    } catch (error) {
+      const canUseLocalFallback = /Higgsfield workspace is not configured|HIGGSFIELD_ENABLED is not true|Higgsfield is required/i.test(error.message);
+      if (!canUseLocalFallback || process.env.DISABLE_VERIFIED_LOCAL_FALLBACK === "true") throw error;
+      console.warn(`[Cron] Higgsfield unavailable for fallback (${error.message}); rendering verified local MP4 instead.`);
+      videoPath = await generateVideo({
+        script: post.script,
+        hook: post.hook,
+        niche: post.niche,
+        style: post.style,
+        allowLocalFallback: true,
+      });
+    }
     const postiz = await schedulePost({
       integrationId: channelId(channel),
       content: post.caption,

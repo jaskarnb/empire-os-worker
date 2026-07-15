@@ -388,10 +388,15 @@ export async function generateVideo({ script, hook, niche = "", style = "auto", 
   if (isHiggsfieldConfigured()) {
     const estimatedCost = Number(process.env.HIGGSFIELD_RENDER_COST_USD || 0.35);
     assertSpendAllowed(estimatedCost);
-    const higgsfieldPath = await generateHiggsfieldVideo({ script: safeScript, hook, niche, style: resolvedStyle });
-    const finalPath = await renderHiggsfieldFinalVideo({ sourcePath: higgsfieldPath, safeScript, resolvedStyle, voice });
-    recordRenderSpend({ source: "higgsfield", estimatedCost, videoPath: finalPath });
-    return finalPath;
+    try {
+      const higgsfieldPath = await generateHiggsfieldVideo({ script: safeScript, hook, niche, style: resolvedStyle });
+      const finalPath = await renderHiggsfieldFinalVideo({ sourcePath: higgsfieldPath, safeScript, resolvedStyle, voice });
+      recordRenderSpend({ source: "higgsfield", estimatedCost, videoPath: finalPath });
+      return finalPath;
+    } catch (error) {
+      if (!allowLocalDebug(allowLocalFallback)) throw error;
+      console.warn(`[VideoGen] Higgsfield failed (${error.message}); using allowed local fallback renderer.`);
+    }
   }
 
   if (allowLocalDebug(allowLocalFallback)) {
