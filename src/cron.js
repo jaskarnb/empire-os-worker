@@ -15,7 +15,16 @@ import { runOpsWatchers } from "./watchers/opsWatchers.js";
 import { notifySlack } from "./tools/slackNotify.js";
 import { getChannels, schedulePost } from "./tools/postiz.js";
 import { generateVideo } from "./tools/videoGen.js";
-import { getScheduledPosts, getSpendState, getUpcomingScheduledPosts, isAutomationPaused, recordScheduledPost } from "./tools/opsState.js";
+import {
+  appendAutomationRunStep,
+  getScheduledPosts,
+  getSpendState,
+  getUpcomingScheduledPosts,
+  isAutomationPaused,
+  recordScheduledPost,
+  startAutomationRun,
+  updateAutomationRun,
+} from "./tools/opsState.js";
 
 let meetingsRunning = false;
 let fallbackRunning = false;
@@ -165,33 +174,41 @@ async function ensureQueueHasPost(reason) {
   }
 }
 
-async function runMeetingStep({ label, meeting, verifier }) {
+async function runMeetingStep({ label, meeting, verifier, runId }) {
+  appendAutomationRunStep(runId, { label, status: "running", phase: "meeting" });
   try {
     await withTimeout(meeting(), `${label} meeting`);
+    appendAutomationRunStep(runId, { label, status: "passed", phase: "meeting" });
+    appendAutomationRunStep(runId, { label, status: "running", phase: "verifier" });
     await withTimeout(runVerifierAfterTask(verifier), `${label} verifier`, Number(process.env.VERIFIER_TIMEOUT_MS || 90_000));
+    appendAutomationRunStep(runId, { label, status: "passed", phase: "verifier" });
     return `${label} meeting passed`;
   } catch (e) {
     console.error(`[Cron] ${label} meeting crashed:`, e.message);
+    appendAutomationRunStep(runId, { label, status: "failed", phase: "meeting", error: e.message });
     return `${label} meeting failed: ${e.message}`;
   }
 }
 
-async function runAllMeetings(reason = "scheduled") {
+export async function runAllMeetings(reason = "scheduled", { source = "cron" } = {}) {
   if (meetingsRunning) {
     console.log(`[Cron] Skipping ${reason}; meetings already running.`);
     return { status: "skipped", reason: "already-running" };
   }
 
   meetingsRunning = true;
+  const run = startAutomationRun({ type: "meetings", reason, source });
   console.log(`\n[Cron] Firing all empire meetings (${reason})...`);
   const results = [];
 
   try {
-    results.push(await runMeetingStep({ label: "Daily", meeting: runDailyMeeting, verifier: "daily-meeting" }));
-    results.push(await runMeetingStep({ label: "Brainrot", meeting: runBrainRotMeeting, verifier: "brainrot-meeting" }));
-    results.push(await runMeetingStep({ label: "Kids", meeting: runKidsMeeting, verifier: "kids-meeting" }));
+    results.push(await runMeetingStep({ label: "Daily", meeting: runDailyMeeting, verifier: "daily-meeting", runId: run.id }));
+    results.push(await runMeetingStep({ label: "Brainrot", meeting: runBrainRotMeeting, verifier: "brainrot-meeting", runId: run.id }));
+    results.push(await runMeetingStep({ label: "Kids", meeting: runKidsMeeting, verifier: "kids-meeting", runId: run.id }));
 
+    appendAutomationRunStep(run.id, { label: "Verified fallback", status: "running", phase: "queue" });
     const fallbackResult = await ensureQueueHasPost(`meetings-finished:${reason}`);
+    appendAutomationRunStep(run.id, { label: "Verified fallback", status: fallbackResult.status, phase: "queue", result: fallbackResult });
     if (fallbackResult.status === "scheduled") {
       results.push(`Verified fallback scheduled: ${fallbackResult.title}`);
     }
@@ -208,7 +225,21 @@ async function runAllMeetings(reason = "scheduled") {
     }
 
     console.log("[Cron] All meetings complete. Empire running.\n");
-    return { status: "complete", results };
+    const failed = results.some((item) => / failed: /i.test(item));
+    const result = { status: failed ? "completed-with-errors" : "complete", results, fallback: fallbackResult };
+    updateAutomationRun(run.id, {
+      status: result.status,
+      finishedAt: new Date().toISOString(),
+      result,
+    });
+    return result;
+  } catch (error) {
+    updateAutomationRun(run.id, {
+      status: "failed",
+      finishedAt: new Date().toISOString(),
+      error: error.message,
+    });
+    throw error;
   } finally {
     meetingsRunning = false;
   }

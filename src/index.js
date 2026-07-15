@@ -1,9 +1,6 @@
 import http from "http";
 import Anthropic from "@anthropic-ai/sdk";
-import { startCronJobs } from "./cron.js";
-import { runDailyMeeting } from "./agents/dailyMeeting.js";
-import { runBrainRotMeeting } from "./agents/brainRotMeeting.js";
-import { runKidsMeeting } from "./agents/kidsMeeting.js";
+import { runAllMeetings, startCronJobs } from "./cron.js";
 import { verifyAutomationReady, verifyMediaSource, verifyTaskCompletion } from "./agents/verifier.js";
 import { generateVideo } from "./tools/videoGen.js";
 import { getChannels, schedulePost } from "./tools/postiz.js";
@@ -19,6 +16,7 @@ import { readLastOpsReport, readRecentIncidents } from "./tools/opsIncidents.js"
 import { isSlackConfigured, notifySlack } from "./tools/slackNotify.js";
 import {
   getAnalyticsSnapshots,
+  getAutomationRuns,
   getAutomationControl,
   getScheduleSummary,
   getScheduledPosts,
@@ -196,6 +194,7 @@ const server = http.createServer(async (req, res) => {
       recentIncidents: readRecentIncidents(25),
       control: getAutomationControl(),
       spend: getSpendState(),
+      automationRuns: getAutomationRuns(5),
       scheduleSummary: getScheduleSummary(200),
       scheduledPosts: getScheduledPosts(10),
       analytics: getAnalyticsSnapshots(5),
@@ -213,6 +212,7 @@ const server = http.createServer(async (req, res) => {
       ts: new Date().toISOString(),
       control: getAutomationControl(),
       spend: getSpendState(),
+      automationRuns: getAutomationRuns(10),
       scheduleSummary: getScheduleSummary(200),
       scheduledPosts: getScheduledPosts(25),
       analytics: getAnalyticsSnapshots(10),
@@ -508,13 +508,15 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && (url.pathname === "/standup" || url.pathname === "/ops/run-standup")) {
-    sendJson(res, 202, { status: "running", ts: new Date().toISOString(), message: "All 3 Empire meetings triggered. Check Railway logs for progress." });
+    sendJson(res, 202, { status: "running", ts: new Date().toISOString(), message: "All 3 Empire meetings triggered. Watch automationRuns in /ops/status for progress." });
     (async () => {
       console.log("[Standup] Manual trigger received via", url.pathname);
-      try { await runDailyMeeting(); await verifyTaskCompletion({ task: "manual-daily-meeting" }); } catch (e) { console.error("[Standup] dailyMeeting:", e.message); }
-      try { await runBrainRotMeeting(); await verifyTaskCompletion({ task: "manual-brainrot-meeting" }); } catch (e) { console.error("[Standup] brainRotMeeting:", e.message); }
-      try { await runKidsMeeting(); await verifyTaskCompletion({ task: "manual-kids-meeting" }); } catch (e) { console.error("[Standup] kidsMeeting:", e.message); }
-      console.log("[Standup] Complete");
+      try {
+        const result = await runAllMeetings("manual-http", { source: url.pathname });
+        console.log("[Standup] Complete", result.status);
+      } catch (e) {
+        console.error("[Standup] runAllMeetings:", e.message);
+      }
     })();
     return;
   }

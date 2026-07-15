@@ -973,6 +973,7 @@ function drawOpsState(data){
   var control=data.control||{};
   var spend=data.spend||{};
   var scheduled=data.scheduledPosts||[];
+  var runs=data.automationRuns||[];
   var analytics=data.analytics||[];
   var dailyBudget=Number(spend.dailyBudget||0);
   var estimatedSpend=Number(spend.estimatedSpend||0);
@@ -1003,7 +1004,13 @@ function drawOpsState(data){
     ?scheduled.slice(0,6).map(function(p){
         return '<div class="miniItem"><strong>'+esc(p.title||'Untitled')+'</strong><span>'+esc(p.channelName||'channel')+'</span></div>';
       }).join('')
-    :'<div class="miniItem"><strong>No posts</strong><span>Queue empty</span></div>';
+    :runs.length
+      ?runs.slice(0,3).map(function(run){
+          var label=(run.reason||run.type||'automation')+' - '+(run.status||'unknown');
+          var detail=run.error||((run.result&&run.result.results)||[]).slice(-1)[0]||'No scheduled post yet';
+          return '<div class="miniItem"><strong>'+esc(label)+'</strong><span>'+esc(detail)+'</span></div>';
+        }).join('')
+      :'<div class="miniItem"><strong>No posts</strong><span>Queue empty</span></div>';
 
   performanceStateEl.innerHTML=analytics.length
     ?analytics.slice(0,4).map(function(item,i){

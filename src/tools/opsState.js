@@ -6,6 +6,7 @@ const controlPath = () => path.join(stateDir(), "control.json");
 const spendPath = () => path.join(stateDir(), "spend-ledger.json");
 const scheduledPath = () => path.join(stateDir(), "scheduled-posts.json");
 const analyticsPath = () => path.join(stateDir(), "analytics-snapshots.json");
+const automationRunsPath = () => path.join(stateDir(), "automation-runs.json");
 const POST_VERIFY_GRACE_MS = 2 * 60 * 60 * 1000;
 
 function ensureDir() {
@@ -223,4 +224,50 @@ export function recordAnalyticsSnapshot(snapshot) {
 
 export function getAnalyticsSnapshots(limit = 25) {
   return readJson(analyticsPath(), []).slice(0, limit);
+}
+
+export function getAutomationRuns(limit = 25) {
+  return readJson(automationRunsPath(), []).slice(0, limit);
+}
+
+export function startAutomationRun({ type = "meeting", reason = "manual", source = "system" } = {}) {
+  const existing = getAutomationRuns(100);
+  const run = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    type,
+    reason,
+    source,
+    status: "running",
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    steps: [],
+    result: null,
+    error: null,
+  };
+  writeJson(automationRunsPath(), [run, ...existing].slice(0, 100));
+  return run;
+}
+
+export function updateAutomationRun(runId, patch = {}) {
+  if (!runId) return null;
+  const runs = getAutomationRuns(100);
+  const index = runs.findIndex((run) => run.id === runId);
+  if (index === -1) return null;
+  const current = runs[index];
+  const next = {
+    ...current,
+    ...patch,
+    steps: patch.steps || current.steps || [],
+    updatedAt: new Date().toISOString(),
+  };
+  runs[index] = next;
+  writeJson(automationRunsPath(), runs);
+  return next;
+}
+
+export function appendAutomationRunStep(runId, step) {
+  const runs = getAutomationRuns(100);
+  const run = runs.find((item) => item.id === runId);
+  const steps = [...(run?.steps || []), { ts: new Date().toISOString(), ...step }];
+  return updateAutomationRun(runId, { steps });
 }
