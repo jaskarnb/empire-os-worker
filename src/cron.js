@@ -77,37 +77,115 @@ function channelName(channel) {
   return channel?.name || channel?.username || channel?.identifier || channelId(channel) || "Empire OS Channel";
 }
 
-function fallbackPostFor(channel) {
-  const name = channelName(channel);
-  const lower = name.toLowerCase();
-  if (/alibi|horror|scary|crime|mystery/.test(lower)) {
-    return {
+const FALLBACK_POSTS = {
+  horror: [
+    {
       title: "The Porch Light Glitch",
       niche: "True crime, cold cases, mystery storytelling, non-graphic suspense, eerie found-footage horror",
       style: "horror",
       hook: "The porch camera caught this first",
       script: "The porch camera caught this first. At 2:13 in the morning, the light turned on by itself, even though the switch inside was off. Then the camera audio picked up one soft knock, followed by a whisper that sounded like the homeowner's name. When the family checked the footage, nobody was standing there. But one frame showed a shadow stretching across the door from inside the house. The strangest part is what happened next. The camera cut out for exactly seven seconds, and when it came back, the door was already open.",
       caption: "The camera missed the worst seven seconds.\nWould you check the door?\n#scary #horror #mystery #creepy #fyp",
-    };
-  }
-  if (/tech|brain|meme|talk/.test(lower)) {
-    return {
+    },
+    {
+      title: "Basement Door Timestamp",
+      niche: "True crime, cold cases, mystery storytelling, non-graphic suspense, eerie found-footage horror",
+      style: "horror",
+      hook: "The basement door opened twice",
+      script: "The basement door opened twice, but the family only heard it once. At 11:48, the hallway camera showed the handle turning slowly from the inside. Nobody was downstairs. The dog backed away from the stairs and refused to bark. Then the motion sensor marked a second opening at 12:03, except the video showed the door already shut. When they brightened the footage, one frame caught a hand pulling back through the crack. The police report called it a camera glitch, but the timestamp kept changing every time they replayed it.",
+      caption: "The timestamp changed after they watched it.\nWould you keep the footage?\n#scary #horrorstory #mystery #creepy #fyp",
+    },
+    {
+      title: "The Spare Key Call",
+      niche: "True crime, cold cases, mystery storytelling, non-graphic suspense, eerie found-footage horror",
+      style: "horror",
+      hook: "The spare key was already gone",
+      script: "The spare key was already gone when she checked under the planter. That was strange, because she lived alone and had used it that morning. Ten minutes later, her phone rang from a blocked number. A voice whispered, I found your key, then hung up. She locked every door and called her neighbor. But before the neighbor arrived, the front door camera sent one alert. Someone was standing at the door, holding the missing key up to the lens, smiling without moving.",
+      caption: "The camera alert came from her own porch.\nWhat would you do first?\n#creepy #scary #mysterytok #horror #fyp",
+    },
+    {
+      title: "Window Reflection Missing",
+      niche: "True crime, cold cases, mystery storytelling, non-graphic suspense, eerie found-footage horror",
+      style: "horror",
+      hook: "Her reflection disappeared first",
+      script: "Her reflection disappeared first. In the kitchen window, you can see the room behind her, the fridge light, the table, even the chair she moved earlier. But her face is missing from the glass. She notices it, leans closer, and the reflection suddenly smiles while she does not. The video cuts right after she steps back. When her sister checked the original file, the sound was still there. One chair scraped across the floor, then a voice said, now you see me.",
+      caption: "The reflection smiled before she did.\nWatch the window.\n#horror #scaryvideo #creepy #mystery #fyp",
+    },
+  ],
+  brainrot: [
+    {
       title: "AI Learns Group Chat",
       niche: "Gen Z brainrot videos, chaotic meme storytelling, absurd internet humor, fast visual jokes, and viral TikTok-style comedy",
       style: "brainrot",
       hook: "The AI entered the group chat",
       script: "The AI entered the group chat and immediately tried to be normal. First it said hello with perfect punctuation, which was already suspicious. Then somebody sent one blurry meme, and the AI responded with a three paragraph emotional analysis. The chat went silent. So it tried again, posted a dancing toaster, and accidentally became the funniest person there. By the end, everyone was asking it for advice, but the AI only replied with one sentence: I have become the algorithm.",
       caption: "It adapted way too fast.\nThe algorithm is awake.\n#brainrot #memes #genz #aitok #fyp",
-    };
-  }
-  return {
-    title: "Rainbow Rescue Race",
-    niche: "Kids-safe cheerful animated stories, bright funny characters, simple adventures, colors, jokes, and playful lessons for ages 4-8",
-    style: "kids",
-    hook: "Can you spot the rainbow key",
-    script: "Can you spot the rainbow key? Benny the little bear found a tiny door in the garden, but it would only open with the right color. First he tried red, and the flowers clapped. Then he tried blue, and the puddle giggled. Finally, a yellow butterfly showed him a rainbow key hiding behind a leaf. Benny opened the door and found a picnic for all his friends. Count the colors with Benny, then wave goodbye before the door sparkles shut.",
-    caption: "A cheerful color hunt for little explorers.\nCan you name every color?\n#kidsvideo #learncolors #storytime #funforkids #animation",
-  };
+    },
+    {
+      title: "Microwave Gains Lore",
+      niche: "Gen Z brainrot videos, chaotic meme storytelling, absurd internet humor, fast visual jokes, and viral TikTok-style comedy",
+      style: "brainrot",
+      hook: "The microwave started dropping lore",
+      script: "The microwave started dropping lore at exactly 3 AM. Somebody reheated pizza and it beeped in Morse code. The fridge got jealous, the toaster picked a side, and the air fryer started narrating like it was a documentary. Then the microwave displayed one message: I know who ate the leftovers. The whole kitchen went silent. The dog looked guilty. The pizza rotated one final time, and the microwave said, case closed.",
+      caption: "Kitchen appliances got drama now.\nThis house is cooked.\n#brainrot #memes #aitok #funny #fyp",
+    },
+    {
+      title: "Algorithm Finds Homework",
+      niche: "Gen Z brainrot videos, chaotic meme storytelling, absurd internet humor, fast visual jokes, and viral TikTok-style comedy",
+      style: "brainrot",
+      hook: "The algorithm found my homework",
+      script: "The algorithm found my homework before I did. I opened my phone for one second and every app started recommending study tips, panic playlists, and a video called how to survive consequences. Then my calculator sent a notification. Bro, we have been waiting. Even the printer woke up and jammed itself for emotional support. I finally opened the assignment, and the due date said yesterday. The algorithm whispered, character development unlocked.",
+      caption: "The algorithm snitched on me.\nAcademic jump scare.\n#schooltok #brainrot #memes #funny #fyp",
+    },
+  ],
+  kids: [
+    {
+      title: "Rainbow Rescue Race",
+      niche: "Kids-safe cheerful animated stories, bright funny characters, simple adventures, colors, jokes, and playful lessons for ages 4-8",
+      style: "kids",
+      hook: "Can you spot the rainbow key",
+      script: "Can you spot the rainbow key? Benny the little bear found a tiny door in the garden, but it would only open with the right color. First he tried red, and the flowers clapped. Then he tried blue, and the puddle giggled. Finally, a yellow butterfly showed him a rainbow key hiding behind a leaf. Benny opened the door and found a picnic for all his friends. Count the colors with Benny, then wave goodbye before the door sparkles shut.",
+      caption: "A cheerful color hunt for little explorers.\nCan you name every color?\n#kidsvideo #learncolors #storytime #funforkids #animation",
+    },
+    {
+      title: "Bubble Train Parade",
+      niche: "Kids-safe cheerful animated stories, bright funny characters, simple adventures, colors, jokes, and playful lessons for ages 4-8",
+      style: "kids",
+      hook: "The bubble train is leaving",
+      script: "The bubble train is leaving the station. Mia the mouse has three shiny tickets, but each ticket needs a happy sound. First she claps twice, and the red bubble pops open. Then she giggles softly, and the blue bubble floats higher. Last, she says please, and the golden bubble becomes the engine. The train carries Mia and her friends over the garden, past the sunflowers, and back home before snack time.",
+      caption: "All aboard the bubble train.\nCan you make the happy sounds?\n#kidsvideo #storytime #learnandplay #funforkids #animation",
+    },
+    {
+      title: "Tiny Rocket Cleanup",
+      niche: "Kids-safe cheerful animated stories, bright funny characters, simple adventures, colors, jokes, and playful lessons for ages 4-8",
+      style: "kids",
+      hook: "The tiny rocket needs help",
+      script: "The tiny rocket needs help before blastoff. Pip the penguin wants to fly to the moon, but toys are scattered all over the launch pad. First, Pip puts the blocks in the red box. Then the crayons go in the yellow cup. Finally, the teddy bear gets a seatbelt for the trip. When everything is clean, the rocket counts down from five and zooms into a sky full of friendly stars.",
+      caption: "Cleanup countdown to the moon.\nCan you count with Pip?\n#kidsvideo #counting #storytime #funforkids #animation",
+    },
+  ],
+};
+
+function fallbackCategoryFor(channel) {
+  const name = channelName(channel);
+  const lower = name.toLowerCase();
+  if (/alibi|horror|scary|crime|mystery/.test(lower)) return "horror";
+  if (/tech|brain|meme|talk/.test(lower)) return "brainrot";
+  return "kids";
+}
+
+function fallbackPostFor(channel) {
+  const category = fallbackCategoryFor(channel);
+  const posts = FALLBACK_POSTS[category] || FALLBACK_POSTS.kids;
+  const recentTitles = new Set(
+    getScheduledPosts(50)
+      .filter((post) => post.channelName === channelName(channel))
+      .map((post) => String(post.title || "").toLowerCase()),
+  );
+  const unused = posts.filter((post) => !recentTitles.has(post.title.toLowerCase()));
+  const pool = unused.length ? unused : posts;
+  const index = Math.floor(Date.now() / (60 * 60 * 1000)) % pool.length;
+  return pool[index];
 }
 
 async function scheduleVerifiedFallback(reason) {
