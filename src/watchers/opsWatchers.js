@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { getChannels, getRecentPosts } from "../tools/postiz.js";
 import { makeIncident, readRecentIncidents, recordIncident, saveLastOpsReport } from "../tools/opsIncidents.js";
-import { getScheduledPosts, getSpendState, recordAnalyticsSnapshot } from "../tools/opsState.js";
+import { getScheduleSummary, getScheduledPosts, getSpendState, reconcileScheduledPosts, recordAnalyticsSnapshot } from "../tools/opsState.js";
 import { notifyOpsReport } from "../tools/slackNotify.js";
 
 const WORKER_HEALTH_URL = process.env.WORKER_HEALTH_URL || process.env.PUBLIC_WORKER_URL || "https://empire-os-worker-production.up.railway.app/health";
@@ -241,12 +241,23 @@ async function checkAnalytics() {
 async function checkGitHub() {
   const agent = "GitHub Watcher";
   try {
+    const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
     const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/pulls/${WATCH_PR_NUMBER}`, {
-      headers: { "User-Agent": "empire-os-worker" },
+      headers: {
+        "User-Agent": "empire-os-worker",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
     });
     if (res.status === 404) return ok(agent, { repo: GITHUB_REPO, watchedPr: null });
     const data = await res.json();
     if (!res.ok) {
+      if (res.status === 403 && /rate limit/i.test(JSON.stringify(data))) {
+        return notice(agent, {
+          repo: GITHUB_REPO,
+          watchedPr: Number(WATCH_PR_NUMBER),
+          note: "GitHub unauthenticated rate limit hit; set GITHUB_TOKEN to remove this noise",
+        });
+      }
       return fail({
         agent,
         severity: "P2",
@@ -281,7 +292,7 @@ async function checkGitHub() {
 function checkSecrets() {
   const agent = "Secrets Watcher";
   const required = ["ANTHROPIC_API_KEY", "POSTIZ_API_KEY"];
-  const recommended = ["HIGGSFIELD_CLI_PATH"];
+  const recommended = ["HIGGSFIELD_CLI_PATH", "PEXELS_API_KEY", "GITHUB_TOKEN"];
   const missingRequired = required.filter((name) => !process.env[name]);
   const missingRecommended = recommended.filter((name) => !process.env[name]);
 
@@ -378,21 +389,41 @@ function checkCosts() {
   return ok(agent, { estimatedSpend, dailyBudget, renders: spend.renders, remaining: spend.remaining, enforced: dailyBudget > 0 });
 }
 
-function checkScheduledPosts() {
+async function checkScheduledPosts() {
   const agent = "Schedule Watcher";
-  const posts = getScheduledPosts(50);
+  const recentPosts = await getRecentPosts(50);
+  const posts = reconcileScheduledPosts({ recentPosts });
   if (!posts.length) return notice(agent, { scheduled: 0, note: "No locally recorded scheduled posts yet" });
   const now = Date.now();
+  const summary = getScheduleSummary(200);
   const upcoming = posts.filter((post) => Date.parse(post.scheduledFor || "") > now);
   const recent = posts.filter((post) => now - Date.parse(post.ts || "") < 24 * 60 * 60 * 1000);
+  const expired = posts.filter((post) => post.status === "expired");
+  if (!upcoming.length && expired.length) {
+    return notice(agent, {
+      ...summary,
+      note: "No upcoming scheduled posts; old scheduled records were marked expired. Queue catch-up should create new posts if automation is enabled.",
+      latest: posts.slice(0, 3).map((post) => ({
+        title: post.title,
+        channelName: post.channelName,
+        scheduledFor: post.scheduledFor,
+        status: post.status,
+        niche: post.niche,
+      })),
+    });
+  }
   return ok(agent, {
     scheduled: posts.length,
     upcoming: upcoming.length,
+    published: summary.published,
+    due: summary.due,
+    expired: summary.expired,
     recordedLast24h: recent.length,
     latest: posts.slice(0, 3).map((post) => ({
       title: post.title,
       channelName: post.channelName,
       scheduledFor: post.scheduledFor,
+      status: post.status,
       niche: post.niche,
     })),
   });
@@ -417,7 +448,7 @@ export async function runOpsWatchers() {
     await checkPostizWeb(),
     await checkSocialAccounts(),
     await checkAnalytics(),
-    checkScheduledPosts(),
+    await checkScheduledPosts(),
     await checkGitHub(),
   ];
 

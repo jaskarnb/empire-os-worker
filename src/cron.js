@@ -15,7 +15,7 @@ import { runOpsWatchers } from "./watchers/opsWatchers.js";
 import { notifySlack } from "./tools/slackNotify.js";
 import { getChannels, schedulePost } from "./tools/postiz.js";
 import { generateVideo } from "./tools/videoGen.js";
-import { getScheduledPosts, getSpendState, isAutomationPaused, recordScheduledPost } from "./tools/opsState.js";
+import { getScheduledPosts, getSpendState, getUpcomingScheduledPosts, isAutomationPaused, recordScheduledPost } from "./tools/opsState.js";
 
 let meetingsRunning = false;
 let fallbackRunning = false;
@@ -103,7 +103,7 @@ function fallbackPostFor(channel) {
 
 async function scheduleVerifiedFallback(reason) {
   if (fallbackRunning) return { status: "skipped", reason: "fallback-running" };
-  if (getScheduledPosts(1).length > 0) return { status: "skipped", reason: "already-scheduled" };
+  if (getUpcomingScheduledPosts(1).length > 0) return { status: "skipped", reason: "already-scheduled" };
 
   fallbackRunning = true;
   try {
@@ -146,7 +146,7 @@ async function scheduleVerifiedFallback(reason) {
 }
 
 async function ensureQueueHasPost(reason) {
-  if (getScheduledPosts(1).length > 0) return { status: "ok", reason: "already-scheduled" };
+  if (getUpcomingScheduledPosts(1).length > 0) return { status: "ok", reason: "already-scheduled" };
   try {
     return await scheduleVerifiedFallback(reason);
   } catch (error) {
@@ -236,7 +236,7 @@ async function runQueueCatchup(reason) {
     console.log(`[Cron] Queue catch-up skipped (${reason}); automation is paused.`);
     return;
   }
-  if (getScheduledPosts(1).length > 0) {
+  if (getUpcomingScheduledPosts(1).length > 0) {
     console.log(`[Cron] Queue catch-up skipped (${reason}); scheduled posts already exist.`);
     return;
   }
@@ -271,7 +271,7 @@ async function runQueueCatchup(reason) {
   writeCatchupState({
     ...readCatchupState(),
     lastFinishedAt: new Date().toISOString(),
-    scheduledAfterRun: getScheduledPosts(10).length,
+    scheduledAfterRun: getUpcomingScheduledPosts(10).length,
   });
 }
 

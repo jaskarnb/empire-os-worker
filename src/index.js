@@ -20,6 +20,7 @@ import { isSlackConfigured, notifySlack } from "./tools/slackNotify.js";
 import {
   getAnalyticsSnapshots,
   getAutomationControl,
+  getScheduleSummary,
   getScheduledPosts,
   getSpendState,
   recordScheduledPost,
@@ -195,6 +196,7 @@ const server = http.createServer(async (req, res) => {
       recentIncidents: readRecentIncidents(25),
       control: getAutomationControl(),
       spend: getSpendState(),
+      scheduleSummary: getScheduleSummary(200),
       scheduledPosts: getScheduledPosts(10),
       analytics: getAnalyticsSnapshots(5),
       slack: {
@@ -211,6 +213,7 @@ const server = http.createServer(async (req, res) => {
       ts: new Date().toISOString(),
       control: getAutomationControl(),
       spend: getSpendState(),
+      scheduleSummary: getScheduleSummary(200),
       scheduledPosts: getScheduledPosts(25),
       analytics: getAnalyticsSnapshots(10),
       niches: runNicheScout(),
@@ -408,6 +411,15 @@ const server = http.createServer(async (req, res) => {
         mediaPath: videoPath,
         requireMedia: true,
         content: payload.content || "Ops test: verified Empire OS video pipeline and Postiz scheduling. This is a scheduled test post.",
+      });
+      recordScheduledPost({
+        title: payload.title || "Ops Postiz Test",
+        channelName: channel.name || channel.username || channel.identifier || "Postiz Channel",
+        integrationId,
+        scheduledFor: scheduleAt,
+        postiz: result,
+        videoPath,
+        niche: payload.niche || "ops test",
       });
       await safeSlack({
         title: "Postiz test scheduled",

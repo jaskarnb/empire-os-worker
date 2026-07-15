@@ -38,9 +38,52 @@ export function makeIncident({ agent, severity = "P3", service = "worker", probl
 
 export function recordIncident(incident) {
   ensureDir();
+  const duplicate = findActiveDuplicate(incident);
+  if (duplicate) {
+    const merged = {
+      ...duplicate,
+      duplicate_count: Number(duplicate.duplicate_count || 1) + 1,
+      last_seen_at: incident.ts,
+      evidence: [...new Set([...(duplicate.evidence || []), ...(incident.evidence || [])])].slice(0, 8),
+    };
+    rewriteIncident(duplicate.id, merged);
+    console.error(`[Ops:${incident.severity}] ${incident.agent} - ${incident.problem} (deduped)`);
+    return merged;
+  }
   fs.appendFileSync(INCIDENT_FILE, `${JSON.stringify(incident)}\n`);
   console.error(`[Ops:${incident.severity}] ${incident.agent} - ${incident.problem}`);
   return incident;
+}
+
+function incidentFingerprint(incident) {
+  return [
+    incident?.agent || "",
+    incident?.service || "",
+    incident?.severity || "",
+    incident?.problem || "",
+  ].join("|").toLowerCase();
+}
+
+function findActiveDuplicate(incident) {
+  const fingerprint = incidentFingerprint(incident);
+  return readIncidentHistory(200)
+    .filter((item) => isActiveIncident(item))
+    .reverse()
+    .find((item) => incidentFingerprint(item) === fingerprint);
+}
+
+function rewriteIncident(id, replacement) {
+  if (!fs.existsSync(INCIDENT_FILE)) return;
+  const lines = fs.readFileSync(INCIDENT_FILE, "utf8").split("\n").filter(Boolean);
+  const updated = lines.map((line) => {
+    try {
+      const parsed = JSON.parse(line);
+      return parsed.id === id ? JSON.stringify(replacement) : line;
+    } catch {
+      return line;
+    }
+  });
+  fs.writeFileSync(INCIDENT_FILE, `${updated.join("\n")}\n`);
 }
 
 export function saveLastOpsReport(report) {

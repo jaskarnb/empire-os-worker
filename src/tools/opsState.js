@@ -6,6 +6,7 @@ const controlPath = () => path.join(stateDir(), "control.json");
 const spendPath = () => path.join(stateDir(), "spend-ledger.json");
 const scheduledPath = () => path.join(stateDir(), "scheduled-posts.json");
 const analyticsPath = () => path.join(stateDir(), "analytics-snapshots.json");
+const POST_VERIFY_GRACE_MS = 2 * 60 * 60 * 1000;
 
 function ensureDir() {
   fs.mkdirSync(stateDir(), { recursive: true });
@@ -92,13 +93,20 @@ export function recordRenderSpend({ source = "unknown", estimatedCost = 0, video
 
 export function recordScheduledPost(entry) {
   const existing = readJson(scheduledPath(), []);
+  const postizIds = extractPostizIds(entry?.postiz);
   const item = {
+    id: entry?.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     ts: new Date().toISOString(),
     title: entry?.title || null,
     channelName: entry?.channelName || null,
     integrationId: entry?.integrationId || null,
     scheduledFor: entry?.scheduledFor || null,
     postiz: entry?.postiz || null,
+    postizIds,
+    status: entry?.status || "scheduled",
+    statusUpdatedAt: new Date().toISOString(),
+    publishCheckedAt: null,
+    publishEvidence: null,
     videoPath: entry?.videoPath || null,
     niche: entry?.niche || null,
   };
@@ -107,6 +115,102 @@ export function recordScheduledPost(entry) {
 
 export function getScheduledPosts(limit = 50) {
   return readJson(scheduledPath(), []).slice(0, limit);
+}
+
+export function getUpcomingScheduledPosts(limit = 50) {
+  const now = Date.now();
+  return getScheduledPosts(200)
+    .filter((post) => Date.parse(post.scheduledFor || "") > now)
+    .slice(0, limit);
+}
+
+export function getScheduleSummary(limit = 200) {
+  const posts = getScheduledPosts(limit);
+  const now = Date.now();
+  const counts = { total: posts.length, upcoming: 0, due: 0, published: 0, failed: 0, expired: 0, unknown: 0 };
+  for (const post of posts) {
+    const status = scheduleStatus(post, now);
+    counts[status] = (counts[status] || 0) + 1;
+  }
+  return { ...counts, latest: posts.slice(0, 10) };
+}
+
+function extractPostizIds(value, found = new Set()) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    for (const item of value) extractPostizIds(item, found);
+    return [...found];
+  }
+  if (typeof value === "object") {
+    for (const [key, nested] of Object.entries(value)) {
+      if (/^(id|postId|post_id|_id)$/i.test(key) && nested) found.add(String(nested));
+      else extractPostizIds(nested, found);
+    }
+  }
+  return [...found];
+}
+
+function normalizeText(value) {
+  return String(value || "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function postMatchesSchedule(scheduled, postizPost) {
+  const ids = new Set([...(scheduled.postizIds || []), ...extractPostizIds(scheduled.postiz)]);
+  const recentIds = extractPostizIds(postizPost);
+  if (recentIds.some((id) => ids.has(id))) return true;
+  const title = normalizeText(scheduled.title);
+  const content = normalizeText([
+    postizPost?.title,
+    postizPost?.content,
+    postizPost?.caption,
+    postizPost?.message,
+    postizPost?.text,
+  ].filter(Boolean).join(" "));
+  return title && content.includes(title.slice(0, 40));
+}
+
+function scheduleStatus(post, now = Date.now()) {
+  if (["published", "failed", "expired"].includes(post?.status)) return post.status;
+  const scheduledAt = Date.parse(post?.scheduledFor || "");
+  if (!Number.isFinite(scheduledAt)) return "unknown";
+  if (scheduledAt > now) return "upcoming";
+  if (now - scheduledAt <= POST_VERIFY_GRACE_MS) return "due";
+  return "expired";
+}
+
+export function reconcileScheduledPosts({ recentPosts = [], now = Date.now() } = {}) {
+  const existing = getScheduledPosts(200);
+  let changed = false;
+  const reconciled = existing.map((post) => {
+    const matched = recentPosts.find((recent) => postMatchesSchedule(post, recent));
+    if (matched) {
+      changed = true;
+      return {
+        ...post,
+        status: "published",
+        statusUpdatedAt: new Date(now).toISOString(),
+        publishCheckedAt: new Date(now).toISOString(),
+        publishEvidence: {
+          source: "postiz",
+          matchedId: extractPostizIds(matched)[0] || matched?.id || null,
+          title: matched?.title || null,
+        },
+      };
+    }
+    const status = scheduleStatus(post, now);
+    if (status !== (post.status || "scheduled")) {
+      changed = true;
+      return {
+        ...post,
+        status,
+        statusUpdatedAt: new Date(now).toISOString(),
+        publishCheckedAt: status === "expired" || status === "due" ? new Date(now).toISOString() : post.publishCheckedAt || null,
+      };
+    }
+    return post;
+  });
+  if (changed) writeJson(scheduledPath(), reconciled);
+  return reconciled;
 }
 
 export function recordAnalyticsSnapshot(snapshot) {
