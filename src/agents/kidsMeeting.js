@@ -38,6 +38,10 @@ function getChannelConfig(name = "") {
   };
 }
 
+function channelId(channel) {
+  return channel?.id || channel?._id || channel?.integrationId || null;
+}
+
 async function scoutEducationalTrends(niche) {
   try {
     const resp = await client().messages.create({
@@ -318,8 +322,9 @@ export async function runKidsMeeting() {
           voice: "en-US-AnaNeural",
           allowLocalFallback: true,
         });
-        const postiz = await schedulePost({ integrationId: ch.id, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
-        recordScheduledPost({ title: post.title, channelName: name, integrationId: ch.id, scheduledFor: date, postiz, videoPath, niche: config.niche });
+        const integrationId = channelId(ch);
+        const postiz = await schedulePost({ integrationId, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
+        recordScheduledPost({ title: post.title, channelName: name, integrationId, scheduledFor: date, postiz, videoPath, niche: config.niche });
         console.log(`[Nova] Scheduled kids video at ${date}`);
       } catch (e) {
         console.error(`[RenderGuard] Skipped kids post: ${e.message}`);

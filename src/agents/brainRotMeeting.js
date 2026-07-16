@@ -55,6 +55,7 @@ const BRAINROT_FALLBACK = {
 
 const BRAINROT_KEYWORDS = [
   "sigma", "ohio", "skibidi", "npc", "rizz", "brain", "meme", "gyatt", "fanum", "slay", "gen z", "genz", "rot", "viral", "cringe",
+  "tech", "talk", "taks", "techtalks", "techtaks",
 ];
 
 function isBrainRotChannel(name = "") {
@@ -65,6 +66,10 @@ function isBrainRotChannel(name = "") {
 function getChannelConfig(name = "") {
   const lower = name.toLowerCase();
   return CHANNEL_CONFIG.find((c) => lower.includes(c.match)) || BRAINROT_FALLBACK;
+}
+
+function channelId(channel) {
+  return channel?.id || channel?._id || channel?.integrationId || null;
 }
 
 async function scoutTrends(niche) {
@@ -237,8 +242,9 @@ export async function runBrainRotMeeting() {
           voice: "en-US-JennyNeural",
           allowLocalFallback: true,
         });
-        const postiz = await schedulePost({ integrationId: ch.id, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
-        recordScheduledPost({ title: post.title, channelName: name, integrationId: ch.id, scheduledFor: date, postiz, videoPath, niche: config.niche });
+        const integrationId = channelId(ch);
+        const postiz = await schedulePost({ integrationId, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
+        recordScheduledPost({ title: post.title, channelName: name, integrationId, scheduledFor: date, postiz, videoPath, niche: config.niche });
         console.log(`[Nova] Scheduled brainrot video at ${date}`);
       } catch (e) {
         console.error(`[RenderGuard] Skipped brainrot post: ${e.message}`);

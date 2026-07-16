@@ -17,7 +17,6 @@ const client = () => new Anthropic({
 });
 
 const SPECIALTY_AGENT_CHANNELS = [
-  "vaultmmnbul", "vaultrise", "thevaultrise", "vault rise",
   "techtaks", "thetechtaks", "tech taks", "techtalks", "thetechtalks", "tech talks",
 ];
 
@@ -85,6 +84,10 @@ function getChannelConfig(name = "") {
 function isSpecialtyAgentChannel(name = "") {
   const lower = name.toLowerCase();
   return SPECIALTY_AGENT_CHANNELS.some((keyword) => lower.includes(keyword));
+}
+
+function channelId(channel) {
+  return channel?.id || channel?._id || channel?.integrationId || null;
 }
 
 async function scoutTrends(niche) {
@@ -284,8 +287,9 @@ export async function runDailyMeeting() {
         console.log(`[Nova] Scheduling video at ${date}...`);
         const usesStockStyle = ["horror", "beauty", "kids", "faceless-reels"].includes(config.style || "dark") && process.env.PEXELS_API_KEY;
         const content = usesStockStyle ? addPexelsAttribution(post.caption) : post.caption;
-        const postiz = await schedulePost({ integrationId: ch.id, content, date, mediaPath: videoPath, requireMedia: true });
-        recordScheduledPost({ title: post.title, channelName: name, integrationId: ch.id, scheduledFor: date, postiz, videoPath, niche: config.niche });
+        const integrationId = channelId(ch);
+        const postiz = await schedulePost({ integrationId, content, date, mediaPath: videoPath, requireMedia: true });
+        recordScheduledPost({ title: post.title, channelName: name, integrationId, scheduledFor: date, postiz, videoPath, niche: config.niche });
         console.log("[Nova] Scheduled with video");
       } catch (e) {
         console.error(`[RenderGuard] Skipped post because video pipeline failed: ${e.message}`);
