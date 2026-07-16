@@ -189,6 +189,10 @@ function fallbackPostFor(channel) {
 }
 
 function selectFallbackChannel(channels) {
+  return selectFallbackChannels(channels)[0] || null;
+}
+
+function selectFallbackChannels(channels) {
   const history = getScheduledPosts(100);
   const counts = new Map();
   for (const post of history) {
@@ -203,16 +207,14 @@ function selectFallbackChannel(channels) {
     })
     .sort((a, b) => a.count - b.count || a.name.localeCompare(b.name));
 
-  if (!ranked.length) return null;
-  const lowestCount = ranked[0].count;
-  const leastTested = ranked.filter((item) => item.count === lowestCount);
-  const index = Math.floor(Date.now() / (60 * 60 * 1000)) % leastTested.length;
-  return leastTested[index].channel;
+  return ranked.map((item) => item.channel);
 }
 
 async function scheduleVerifiedFallback(reason) {
   if (fallbackRunning) return { status: "skipped", reason: "fallback-running" };
-  if (getUpcomingScheduledPosts(1).length > 0) return { status: "skipped", reason: "already-scheduled" };
+  const targetUpcoming = Number(process.env.GROWTH_MIN_UPCOMING_POSTS || 3);
+  const upcoming = getUpcomingScheduledPosts(targetUpcoming);
+  if (upcoming.length >= targetUpcoming) return { status: "skipped", reason: "queue-target-met", upcoming: upcoming.length, targetUpcoming };
 
   fallbackRunning = true;
   try {
@@ -220,49 +222,83 @@ async function scheduleVerifiedFallback(reason) {
     const schedulable = channels.filter((channel) => channelId(channel));
     if (!schedulable.length) throw new Error("No schedulable Postiz channel found for fallback");
 
-    const channel = selectFallbackChannel(schedulable) || schedulable[0];
-    const post = fallbackPostFor(channel);
-    const scheduleAt = new Date(Date.now() + Number(process.env.FALLBACK_SCHEDULE_DELAY_MINUTES || 35) * 60 * 1000).toISOString();
+    const channelsToTest = selectFallbackChannels(schedulable);
+    const needed = Math.max(1, targetUpcoming - upcoming.length);
+    const scheduled = [];
+    const failures = [];
 
-    console.log(`[Cron] Running verified fallback post for ${channelName(channel)} (${reason})...`);
-    let videoPath;
-    try {
-      videoPath = await generateVideo({
-        script: post.script,
-        hook: post.hook,
-        niche: post.niche,
-        style: post.style,
-      });
-    } catch (error) {
-      const canUseLocalFallback = /Higgsfield workspace is not configured|HIGGSFIELD_ENABLED is not true|Higgsfield is required/i.test(error.message);
-      if (!canUseLocalFallback || process.env.DISABLE_VERIFIED_LOCAL_FALLBACK === "true") throw error;
-      console.warn(`[Cron] Higgsfield unavailable for fallback (${error.message}); rendering verified local MP4 instead.`);
-      videoPath = await generateVideo({
-        script: post.script,
-        hook: post.hook,
-        niche: post.niche,
-        style: post.style,
-        allowLocalFallback: true,
-      });
+    for (let i = 0; i < needed && i < channelsToTest.length; i++) {
+      const channel = channelsToTest[i];
+      const post = fallbackPostFor(channel);
+      const delay = Number(process.env.FALLBACK_SCHEDULE_DELAY_MINUTES || 35) + i * Number(process.env.GROWTH_FALLBACK_SPACING_MINUTES || 75);
+      const scheduleAt = new Date(Date.now() + delay * 60 * 1000).toISOString();
+
+      console.log(`[Cron] Running verified fallback post for ${channelName(channel)} (${reason})...`);
+      let videoPath;
+      try {
+        try {
+          videoPath = await generateVideo({
+            script: post.script,
+            hook: post.hook,
+            niche: post.niche,
+            style: post.style,
+          });
+        } catch (error) {
+          const canUseLocalFallback = /Higgsfield workspace is not configured|HIGGSFIELD_ENABLED is not true|Higgsfield is required/i.test(error.message);
+          if (!canUseLocalFallback || process.env.DISABLE_VERIFIED_LOCAL_FALLBACK === "true") throw error;
+          console.warn(`[Cron] Higgsfield unavailable for fallback (${error.message}); rendering verified local MP4 instead.`);
+          videoPath = await generateVideo({
+            script: post.script,
+            hook: post.hook,
+            niche: post.niche,
+            style: post.style,
+            allowLocalFallback: true,
+          });
+        }
+        const postiz = await schedulePost({
+          integrationId: channelId(channel),
+          content: post.caption,
+          date: scheduleAt,
+          mediaPath: videoPath,
+          requireMedia: true,
+        });
+        recordScheduledPost({
+          title: post.title,
+          channelName: channelName(channel),
+          integrationId: channelId(channel),
+          scheduledFor: scheduleAt,
+          postiz,
+          videoPath,
+          niche: post.niche,
+        });
+        scheduled.push({ title: post.title, channel: channelName(channel), scheduledFor: scheduleAt, videoPath });
+        console.log(`[Cron] Verified fallback scheduled at ${scheduleAt}`);
+      } catch (error) {
+        failures.push({ channel: channelName(channel), error: error.message });
+        console.error(`[Cron] Verified fallback failed for ${channelName(channel)}:`, error.message);
+      }
     }
-    const postiz = await schedulePost({
-      integrationId: channelId(channel),
-      content: post.caption,
-      date: scheduleAt,
-      mediaPath: videoPath,
-      requireMedia: true,
-    });
-    recordScheduledPost({
-      title: post.title,
-      channelName: channelName(channel),
-      integrationId: channelId(channel),
-      scheduledFor: scheduleAt,
-      postiz,
-      videoPath,
-      niche: post.niche,
-    });
-    console.log(`[Cron] Verified fallback scheduled at ${scheduleAt}`);
-    return { status: "scheduled", title: post.title, channel: channelName(channel), scheduledFor: scheduleAt, videoPath };
+
+    if (scheduled.length) {
+      return {
+        status: "scheduled",
+        count: scheduled.length,
+        title: scheduled[0].title,
+        channel: scheduled[0].channel,
+        scheduledFor: scheduled[0].scheduledFor,
+        videoPath: scheduled[0].videoPath,
+        scheduled,
+        failures,
+        targetUpcoming,
+      };
+    }
+
+    return {
+      status: "failed",
+      error: failures[0]?.error || "No verified fallback post could be scheduled",
+      failures,
+      targetUpcoming,
+    };
   } finally {
     fallbackRunning = false;
   }
