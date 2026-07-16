@@ -84,12 +84,11 @@ async function scoutTrends(niche) {
     return textBlock?.text || "Focus on proven Gen Z formats: absurd contrast, fast punchlines, rankings, and POV archetypes.";
   } catch (e) {
     console.warn("[BrainRot Scout] Web search failed, fallback:", e.message);
-    const resp = await client().messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
-      messages: [{ role: "user", content: `Give 3 viral TikTok/Shorts formats for a Gen Z "${niche}" channel.` }],
-    });
-    return resp.content[0].text;
+    return [
+      "Pattern 1: ordinary object gains lore, escalates into absurd drama, ends with a hard punchline.",
+      "Pattern 2: school/work problem becomes an algorithmic jump scare with fast captions.",
+      "Pattern 3: rank a familiar situation from normal to unhinged with one joke per beat.",
+    ].join("\n");
   }
 }
 
@@ -136,24 +135,49 @@ Return ONLY valid JSON:
   }
 ]`;
 
-  const resp = await client().messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 1200,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const raw = resp.content[0].text;
-  const match = raw.match(/\[[\s\S]*\]/);
-  if (!match) {
-    console.error(`[BrainRot Muse] No JSON for ${channelName}. Raw:`, raw.slice(0, 200));
-    return [];
-  }
   try {
+    const resp = await client().messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1200,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const raw = resp.content[0].text;
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) {
+      console.error(`[BrainRot Muse] No JSON for ${channelName}. Raw:`, raw.slice(0, 200));
+      return fallbackPosts(postsPerDay, affiliate, postIndex);
+    }
     return JSON.parse(match[0]).slice(0, postsPerDay);
   } catch (e) {
-    console.error(`[BrainRot Muse] Parse error for ${channelName}:`, e.message);
-    return [];
+    console.error(`[BrainRot Muse] Fallback for ${channelName}:`, e.message);
+    return fallbackPosts(postsPerDay, affiliate, postIndex);
   }
+}
+
+function fallbackPosts(postsPerDay, affiliate, postIndex = 0) {
+  const cta = affiliate && postIndex % 2 === 0 ? `\n${affiliate.cta}` : "";
+  const bank = [
+    {
+      title: "Microwave Gains Lore",
+      hook: "The microwave started dropping lore",
+      script: "The microwave started dropping lore at exactly 3 AM. Somebody reheated pizza and it beeped like it knew too much. The fridge got jealous, the toaster picked a side, and the air fryer started narrating like a documentary. Then the microwave displayed one message: I know who ate the leftovers. The whole kitchen went silent. The pizza rotated one final time, and the microwave said, case closed.",
+      caption: `Kitchen appliances got drama now.${cta}\n#brainrot #memes #aitok #funny #fyp`,
+    },
+    {
+      title: "Algorithm Finds Homework",
+      hook: "The algorithm found my homework",
+      script: "The algorithm found my homework before I did. I opened my phone for one second and every app recommended study tips, panic playlists, and a video called how to survive consequences. Then my calculator sent a notification: bro, we have been waiting. Even the printer woke up and jammed itself for emotional support. I opened the assignment, and the due date said yesterday.",
+      caption: `Academic jump scare unlocked.${cta}\n#schooltok #brainrot #memes #funny #fyp`,
+    },
+    {
+      title: "Phone Battery Villain Arc",
+      hook: "My phone hit one percent",
+      script: "My phone hit one percent and chose violence. First it dimmed the screen like a dramatic movie scene. Then every app suddenly needed an update. I plugged it in, but the charger said not today. The battery icon blinked once, showed me every bad decision I made that day, and disappeared. When it finally turned back on, it had one notification: character development complete.",
+      caption: `One percent is a horror genre.${cta}\n#brainrot #relatable #memes #genz #fyp`,
+    },
+  ];
+  return Array.from({ length: postsPerDay }, (_, index) => bank[(postIndex + index) % bank.length]);
 }
 
 function buildScheduleTimes(times) {

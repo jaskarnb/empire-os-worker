@@ -54,12 +54,14 @@ async function scoutEducationalTrends(niche) {
     return { trends: textBlock?.text || "Counting songs, alphabet videos, talking animals, color learning.", trendingGame: null };
   } catch (e) {
     console.warn("[Kids Scout] Web search failed, fallback:", e.message);
-    const resp = await client().messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
-      messages: [{ role: "user", content: `Give 3 safe, viral short-form video formats for children aged 3-8 in the "${niche}" niche.` }],
-    });
-    return { trends: resp.content[0].text, trendingGame: null };
+    return {
+      trends: [
+        "Pattern 1: cheerful counting quest with one object added each beat.",
+        "Pattern 2: color guessing game with a friendly reveal every few seconds.",
+        "Pattern 3: tiny adventure story with a simple lesson and repeatable phrase.",
+      ].join("\n"),
+      trendingGame: null,
+    };
   }
 }
 
@@ -144,23 +146,23 @@ Return ONLY valid JSON:
   }
 ]`;
 
-  const resp = await client().messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 1200,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const raw = resp.content[0].text;
-  const match = raw.match(/\[[\s\S]*\]/);
-  if (!match) {
-    console.error(`[Kids Muse] No JSON for ${channelName}. Raw:`, raw.slice(0, 200));
-    return [];
-  }
   try {
+    const resp = await client().messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1200,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const raw = resp.content[0].text;
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) {
+      console.error(`[Kids Muse] No JSON for ${channelName}. Raw:`, raw.slice(0, 200));
+      return fallbackEducationalPosts(postsPerDay);
+    }
     return JSON.parse(match[0]).slice(0, postsPerDay);
   } catch (e) {
-    console.error(`[Kids Muse] Parse error for ${channelName}:`, e.message);
-    return [];
+    console.error(`[Kids Muse] Fallback for ${channelName}:`, e.message);
+    return fallbackEducationalPosts(postsPerDay);
   }
 }
 
@@ -208,24 +210,60 @@ Return ONLY valid JSON:
   }
 ]`;
 
-  const resp = await client().messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 1400,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const raw = resp.content[0].text;
-  const match = raw.match(/\[[\s\S]*\]/);
-  if (!match) {
-    console.error(`[Kids Muse Gaming] No JSON for ${channelName}. Raw:`, raw.slice(0, 200));
-    return [];
-  }
   try {
+    const resp = await client().messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1400,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const raw = resp.content[0].text;
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) {
+      console.error(`[Kids Muse Gaming] No JSON for ${channelName}. Raw:`, raw.slice(0, 200));
+      return fallbackGamingPosts(postsPerDay, platform);
+    }
     return JSON.parse(match[0]).slice(0, postsPerDay);
   } catch (e) {
-    console.error(`[Kids Muse Gaming] Parse error for ${channelName}:`, e.message);
-    return [];
+    console.error(`[Kids Muse Gaming] Fallback for ${channelName}:`, e.message);
+    return fallbackGamingPosts(postsPerDay, platform);
   }
+}
+
+function fallbackEducationalPosts(postsPerDay) {
+  const bank = [
+    {
+      title: "Bubble Train Parade",
+      hook: "The bubble train is leaving",
+      script: "The bubble train is leaving the station. Mia the mouse has three shiny tickets, but each ticket needs a happy sound. First she claps twice, and the red bubble pops open. Then she giggles softly, and the blue bubble floats higher. Last, she says please, and the golden bubble becomes the engine. The train carries Mia and her friends over the garden and back home before snack time.",
+      caption: "All aboard the bubble train.\nCan you make the happy sounds?\n#kidsvideo #storytime #learnandplay #funforkids",
+    },
+    {
+      title: "Tiny Rocket Cleanup",
+      hook: "The tiny rocket needs help",
+      script: "The tiny rocket needs help before blastoff. Pip the penguin wants to fly to the moon, but toys are scattered all over the launch pad. First, Pip puts the blocks in the red box. Then the crayons go in the yellow cup. Finally, the teddy bear gets a seatbelt for the trip. When everything is clean, the rocket counts down from five and zooms into a sky full of friendly stars.",
+      caption: "Cleanup countdown to the moon.\nCan you count with Pip?\n#kidsvideo #counting #storytime #funforkids",
+    },
+  ];
+  return Array.from({ length: postsPerDay }, (_, index) => bank[index % bank.length]);
+}
+
+function fallbackGamingPosts(postsPerDay, platform) {
+  const bank = [
+    {
+      title: "Secret Door Challenge",
+      hook: "Can you find the secret door",
+      script: "Can you find the secret door before the timer ends? First, look behind the bright blue block. Nothing there. Next, check the tiny path near the tree. Still nothing. Then one button appears under the stairs. Tap it once, and the wall opens into a hidden room full of coins and stars. Follow for more safe game secrets.",
+      caption: `Secret room unlocked.\nFollow for more ${platform} secrets!\n#kidsgaming #roblox #minecraft #gamingtips #shorts`,
+    },
+    {
+      title: "Beginner Build Save",
+      hook: "This tiny build trick helps",
+      script: "This tiny build trick helps every beginner. Start with one square room, then add a colorful roof, then place two lights near the door. Now hide a little chest behind the wall for your best items. The build looks simple from outside, but inside it has a secret. Try it in your next game and follow for more safe tips.",
+      caption: `Tiny build, big secret.\nFollow for more ${platform} tips!\n#kidsgaming #buildtips #roblox #minecraft #shorts`,
+    },
+  ];
+  return Array.from({ length: postsPerDay }, (_, index) => bank[index % bank.length]);
 }
 
 function buildScheduleTimes(times) {

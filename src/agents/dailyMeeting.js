@@ -102,12 +102,11 @@ async function scoutTrends(niche) {
     return textBlock?.text || "Focus on evergreen, high-value hooks.";
   } catch (e) {
     console.warn("[Scout] Web search failed, fallback:", e.message);
-    const resp = await client().messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
-      messages: [{ role: "user", content: `3 viral video formats for "${niche}" on TikTok/Shorts?` }],
-    });
-    return resp.content[0].text;
+    return [
+      "Pattern 1: open with a specific mistake or unexplained detail, then reveal the consequence.",
+      "Pattern 2: use a numbered micro-story with one visual change every sentence.",
+      "Pattern 3: end with a comment-driving question that makes viewers rewatch the clip.",
+    ].join("\n");
   }
 }
 
@@ -169,24 +168,46 @@ Return ONLY valid JSON - no markdown, no explanation:
 
 function fallbackPosts(channelName, niche, postsPerDay, affiliate, postIndex = 0) {
   const isHorror = /horror|scary|paranormal|creepy|alibi/i.test(`${channelName} ${niche}`);
+  const isMoney = /finance|money|wealth|passive|business|side hustle|vault/i.test(`${channelName} ${niche}`);
   const affiliateLine = affiliate && postIndex % 2 === 0 ? ` ${affiliate.cta}` : "";
-  const horror = {
-    title: "Backyard Camera Freeze",
-    hook: "The porch camera caught this",
-    script: "The porch camera caught this right after midnight. At first, the backyard looked empty, just rain tapping the fence and one light flickering near the steps. Then the camera glitched for half a second. When the picture came back, a tall shadow was standing behind the tree line. The person inside whispered that nobody should be out there. The shadow leaned forward like it heard them. Then it moved across the yard in one quick step, and the camera cut to black right before the doorbell rang.",
-    caption: `The camera froze at the worst second.\nWould you open the door?${affiliateLine}\n#scary #horror #creepy #paranormal #foundfootage`,
-  };
-  const general = {
-    title: "Simple Viral Explainer",
-    hook: "Most people miss this",
-    script: "Most people miss this because it looks normal at first. The real trick is watching what changes from one second to the next. First, the obvious part grabs your attention. Then the small detail in the background explains what is really happening. By the time you notice it, the whole scene feels different. That is why the best short videos do not just show random clips. They set up one clear question, build tension, then give you a payoff that makes you want to watch again.",
-    caption: `The detail changes everything.\nWatch it twice.${affiliateLine}\n#viral #shorts #story #explained #fyp`,
-  };
-  const base = isHorror ? horror : general;
-  return Array.from({ length: postsPerDay }, (_, index) => ({
-    ...base,
-    title: index === 0 ? base.title : `${base.title} ${index + 1}`,
-  }));
+  const horror = [
+    {
+      title: "Backyard Camera Freeze",
+      hook: "The porch camera caught this",
+      script: "The porch camera caught this right after midnight. At first, the backyard looked empty, just rain tapping the fence and one light flickering near the steps. Then the camera glitched for half a second. When the picture came back, a tall shadow was standing behind the tree line. The person inside whispered that nobody should be out there. The shadow leaned forward like it heard them. Then it moved across the yard in one quick step, and the camera cut to black right before the doorbell rang.",
+      caption: `The camera froze at the worst second.\nWould you open the door?${affiliateLine}\n#scary #horror #creepy #paranormal #foundfootage`,
+    },
+    {
+      title: "Window Reflection Missing",
+      hook: "Her reflection disappeared first",
+      script: "Her reflection disappeared first. In the kitchen window, you could see the fridge light, the table, and the chair behind her. But her face was missing from the glass. She leaned closer, and the reflection smiled while she did not. The video cut right after she stepped back. When her sister checked the original file, the sound was still there: one chair scraping across the floor, then a voice saying, now you see me.",
+      caption: `The reflection smiled before she did.\nWatch the window.${affiliateLine}\n#horror #scaryvideo #creepy #mystery #fyp`,
+    },
+  ];
+  const money = [
+    {
+      title: "The Twenty Dollar Leak",
+      hook: "This tiny habit drains money",
+      script: "This tiny habit drains money because it never feels expensive. One app charge here, one delivery fee there, one forgotten free trial after that. The trick is not cutting every fun thing. The trick is finding the leak you do not even enjoy. Open your last seven days of spending and circle anything you would not buy again today. Cancel one, move that money into savings, and you just gave yourself a raise without working extra hours.",
+      caption: `Find the leak before payday.${affiliateLine}\n#moneytips #personalfinance #budgeting #wealthbuilding #fyp`,
+    },
+    {
+      title: "Payday Split Rule",
+      hook: "Try this on payday",
+      script: "Try this on payday before the money disappears. Split your check into three jobs the same day it lands. First, bills so nothing surprises you. Second, future you, even if it is only ten dollars. Third, guilt-free spending so you do not quit the plan by Friday. The goal is not being perfect. The goal is making the smart move automatic before your mood gets a vote.",
+      caption: `Make payday automatic.${affiliateLine}\n#moneyhabits #finance #budgettips #youngadults #fyp`,
+    },
+  ];
+  const general = [
+    {
+      title: "Simple Viral Explainer",
+      hook: "Most people miss this",
+      script: "Most people miss this because it looks normal at first. The real trick is watching what changes from one second to the next. First, the obvious part grabs your attention. Then the small detail in the background explains what is really happening. By the time you notice it, the whole scene feels different. That is why the best short videos do not just show random clips. They set up one clear question, build tension, then give you a payoff that makes you want to watch again.",
+      caption: `The detail changes everything.\nWatch it twice.${affiliateLine}\n#viral #shorts #story #explained #fyp`,
+    },
+  ];
+  const bank = isHorror ? horror : isMoney ? money : general;
+  return Array.from({ length: postsPerDay }, (_, index) => bank[(postIndex + index) % bank.length]);
 }
 
 function buildScheduleTimes(times) {
