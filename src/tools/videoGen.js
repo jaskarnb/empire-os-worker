@@ -14,6 +14,10 @@ const WIDTH = 1080;
 const HEIGHT = 1920;
 const HORROR_TERMS = ["horror", "scary", "creepy", "paranormal", "haunting", "true crime", "cold case", "murder", "mystery", "missing", "urban legend"];
 
+function pythonCommand() {
+  return process.env.PYTHON_BIN || (process.platform === "win32" ? "python" : "python3");
+}
+
 function resolveStyle({ niche = "", style = "auto" } = {}) {
   const requested = String(style || "auto").toLowerCase().trim();
   if (requested && requested !== "auto") return requested;
@@ -150,10 +154,10 @@ async function videoDuration(videoPath) {
   return Math.min(Math.max(parseFloat(stdout.trim()) || 30, 8), 59);
 }
 
-async function renderFrame({ frameScript, output, text, niche, style, sceneIndex, totalScenes }) {
-  await execFileAsync("python3", [
+async function renderFrame({ frameScript, output, text, niche, style, sceneIndex, totalScenes, motionPhase = 0 }) {
+  await execFileAsync(pythonCommand(), [
     frameScript,
-    JSON.stringify({ hook: text, output, niche, style, sceneIndex, totalScenes }),
+    JSON.stringify({ hook: text, output, niche, style, sceneIndex, totalScenes, motionPhase }),
   ], { timeout: 30_000 });
 }
 
@@ -210,7 +214,8 @@ async function renderAudio({ audioPath, script, style, voice }) {
 }
 
 function subtitleFilterPath(filePath) {
-  return String(filePath).replace(/\\/g, "/").replace(/'/g, "\\'");
+  const normalized = String(filePath).replace(/\\/g, "/").replace(/'/g, "\\'");
+  return normalized.replace(/^([A-Za-z]):\//, "$1\\:/");
 }
 
 function isRemoteUrl(value) {
@@ -362,12 +367,27 @@ async function renderLocalDebugVideo({ safeScript, hook, niche, resolvedStyle, v
     console.log(`[VideoGen] Duration: ${duration}s style=${resolvedStyle}`);
 
     const sceneTexts = splitScriptIntoScenes(safeScript, hook);
-    const durations = sceneDurations(sceneTexts, duration);
+    const baseDurations = sceneDurations(sceneTexts, duration);
+    const durations = [];
     writeSubtitleFile({ subtitlePath, script: safeScript, duration, style: resolvedStyle });
     for (let i = 0; i < sceneTexts.length; i++) {
-      const framePath = path.resolve(videoDir, `${id}_scene_${String(i + 1).padStart(2, "0")}.png`);
-      framePaths.push(framePath);
-      await renderFrame({ frameScript, output: framePath, text: sceneTexts[i], niche, style: resolvedStyle, sceneIndex: i + 1, totalScenes: sceneTexts.length });
+      const cels = resolvedStyle === "horror" ? 3 : 4;
+      const celDuration = baseDurations[i] / cels;
+      for (let cel = 0; cel < cels; cel++) {
+        const framePath = path.resolve(videoDir, `${id}_scene_${String(i + 1).padStart(2, "0")}_${String(cel + 1).padStart(2, "0")}.png`);
+        framePaths.push(framePath);
+        durations.push(celDuration);
+        await renderFrame({
+          frameScript,
+          output: framePath,
+          text: sceneTexts[i],
+          niche,
+          style: resolvedStyle,
+          sceneIndex: i + 1,
+          totalScenes: sceneTexts.length,
+          motionPhase: cels <= 1 ? 0 : cel / (cels - 1),
+        });
+      }
     }
 
     await encodeVideo({ framePaths, audioPath, videoPath, duration, durations, subtitlePath, style: resolvedStyle });

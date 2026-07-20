@@ -135,22 +135,26 @@ def speech_bubble(draw, text, x=90, y=170, w=900, h=250, fill=(255, 255, 255), o
     centered_lines(draw, text, load_font(58), y + 50, 18, (18, 18, 28), None, 0, 3)
 
 
-def draw_character(draw, x, y, scale=1.0, shirt=(139, 92, 246), mood="happy"):
+def draw_character(draw, x, y, scale=1.0, shirt=(139, 92, 246), mood="happy", pose=0):
     s = scale
     skin = (255, 205, 155)
     outline = (35, 24, 45)
+    bob = math.sin(pose * math.pi * 2) * 18 * s
+    arm_wave = math.sin(pose * math.pi * 2) * 72 * s
+    leg_swing = math.sin(pose * math.pi * 2) * 34 * s
+    y = y + bob
     # shadow
     draw.ellipse([x - 150*s, y + 470*s, x + 150*s, y + 525*s], fill=(0, 0, 0, 70))
     # legs
-    draw.rounded_rectangle([x - 86*s, y + 285*s, x - 24*s, y + 505*s], radius=int(24*s), fill=(45, 55, 95), outline=outline, width=max(2, int(5*s)))
-    draw.rounded_rectangle([x + 24*s, y + 285*s, x + 86*s, y + 505*s], radius=int(24*s), fill=(45, 55, 95), outline=outline, width=max(2, int(5*s)))
+    draw.rounded_rectangle([x - 86*s - leg_swing, y + 285*s, x - 24*s - leg_swing, y + 505*s], radius=int(24*s), fill=(45, 55, 95), outline=outline, width=max(2, int(5*s)))
+    draw.rounded_rectangle([x + 24*s + leg_swing, y + 285*s, x + 86*s + leg_swing, y + 505*s], radius=int(24*s), fill=(45, 55, 95), outline=outline, width=max(2, int(5*s)))
     # body
     draw.rounded_rectangle([x - 120*s, y + 105*s, x + 120*s, y + 330*s], radius=int(58*s), fill=shirt, outline=outline, width=max(2, int(7*s)))
     # arms
-    draw.line([(x - 105*s, y + 155*s), (x - 205*s, y + 265*s)], fill=outline, width=max(5, int(28*s)))
-    draw.line([(x + 105*s, y + 155*s), (x + 205*s, y + 245*s)], fill=outline, width=max(5, int(28*s)))
-    draw.ellipse([x - 230*s, y + 245*s, x - 175*s, y + 300*s], fill=skin, outline=outline, width=max(2, int(5*s)))
-    draw.ellipse([x + 180*s, y + 225*s, x + 235*s, y + 280*s], fill=skin, outline=outline, width=max(2, int(5*s)))
+    draw.line([(x - 105*s, y + 155*s), (x - 205*s, y + 265*s - arm_wave)], fill=outline, width=max(5, int(28*s)))
+    draw.line([(x + 105*s, y + 155*s), (x + 205*s, y + 245*s + arm_wave)], fill=outline, width=max(5, int(28*s)))
+    draw.ellipse([x - 230*s, y + 245*s - arm_wave, x - 175*s, y + 300*s - arm_wave], fill=skin, outline=outline, width=max(2, int(5*s)))
+    draw.ellipse([x + 180*s, y + 225*s + arm_wave, x + 235*s, y + 280*s + arm_wave], fill=skin, outline=outline, width=max(2, int(5*s)))
     # head and hair
     draw.ellipse([x - 105*s, y - 70*s, x + 105*s, y + 140*s], fill=skin, outline=outline, width=max(2, int(7*s)))
     draw.pieslice([x - 115*s, y - 95*s, x + 115*s, y + 95*s], 185, 355, fill=(38, 25, 36), outline=outline, width=max(2, int(5*s)))
@@ -185,11 +189,13 @@ def draw_money_object(draw, x, y):
         draw.text((x + 35 + i * 25, yy + 44), "$", font=load_font(58), fill=outline)
 
 
-def draw_robot(draw, x, y, accent=(103, 232, 249)):
+def draw_robot(draw, x, y, accent=(103, 232, 249), pose=0):
     outline = (20, 24, 42)
+    y = y + math.sin(pose * math.pi * 2) * 22
+    eye_offset = math.sin(pose * math.pi * 2) * 8
     draw.rounded_rectangle([x, y, x + 300, y + 260], radius=42, fill=(235, 245, 255), outline=outline, width=8)
-    draw.ellipse([x + 72, y + 80, x + 122, y + 130], fill=accent, outline=outline, width=5)
-    draw.ellipse([x + 178, y + 80, x + 228, y + 130], fill=accent, outline=outline, width=5)
+    draw.ellipse([x + 72 + eye_offset, y + 80, x + 122 + eye_offset, y + 130], fill=accent, outline=outline, width=5)
+    draw.ellipse([x + 178 + eye_offset, y + 80, x + 228 + eye_offset, y + 130], fill=accent, outline=outline, width=5)
     draw.arc([x + 90, y + 125, x + 210, y + 205], 15, 165, fill=outline, width=8)
     draw.line([(x + 150, y), (x + 150, y - 70)], fill=outline, width=8)
     draw.ellipse([x + 125, y - 105, x + 175, y - 55], fill=accent, outline=outline, width=5)
@@ -202,25 +208,26 @@ def draw_dumbbell(draw, x, y):
         draw.rounded_rectangle([x + dx - 22, y - 70, x + dx + 22, y + 70], radius=14, fill=(90, 95, 115), outline=outline, width=5)
 
 
-def draw_explainer_object(draw, kind, x, y, accent):
+def draw_explainer_object(draw, kind, x, y, accent, pose=0):
+    y = y + math.sin(pose * math.pi * 2) * 18
     if kind == "money":
         draw_money_object(draw, x, y)
     elif kind == "robot":
-        draw_robot(draw, x + 30, y + 40, accent)
+        draw_robot(draw, x + 30, y + 40, accent, pose)
     elif kind == "dumbbell":
         draw_dumbbell(draw, x + 20, y + 160)
     else:
         draw_phone(draw, x + 70, y, accent, "PLAN")
 
 
-def draw_dark_scene(draw, hook, niche, scene_index, total_scenes):
+def draw_dark_scene(draw, hook, niche, scene_index, total_scenes, motion_phase=0):
     p = palette(niche, "dark")
     accent = p["accent"]
     gradient(draw, p["sky"], (180, 215, 255))
     draw.rectangle([0, 1320, W, H], fill=p["ground"])
     # moving clouds and rays make each scene feel like animation cel
     for i in range(5):
-        cx = (120 + i * 250 + scene_index * 35) % (W + 220) - 110
+        cx = (120 + i * 250 + scene_index * 35 + int(motion_phase * 120)) % (W + 220) - 110
         cy = 170 + (i % 2) * 130
         for ox, oy, r in [(0, 0, 58), (55, -25, 72), (125, 0, 58)]:
             draw.ellipse([cx + ox - r, cy + oy - r, cx + ox + r, cy + oy + r], fill=(255, 255, 255))
@@ -230,8 +237,8 @@ def draw_dark_scene(draw, hook, niche, scene_index, total_scenes):
 
     speech_bubble(draw, hook)
     mood = "shock" if scene_index <= 2 else "happy"
-    draw_character(draw, 305, 820, 1.05, p["shirt"], mood)
-    draw_explainer_object(draw, p["object"], 600, 800, accent)
+    draw_character(draw, 265 + int(motion_phase * 95), 820, 1.05, p["shirt"], mood, motion_phase)
+    draw_explainer_object(draw, p["object"], 600 + int(math.sin(motion_phase * math.pi * 2) * 45), 800, accent, motion_phase)
     # visual beat badges
     labels = keywords(hook)
     for i, label in enumerate(labels[:3]):
@@ -250,7 +257,7 @@ def draw_noise(draw, seed, density=1600):
         draw.point((x, y), fill=(shade, shade, shade))
 
 
-def draw_horror_scene(draw, hook, niche, scene_index, total_scenes):
+def draw_horror_scene(draw, hook, niche, scene_index, total_scenes, motion_phase=0):
     gradient(draw, (13, 17, 35), (45, 15, 38))
     moon = (235, 236, 208)
     red = (255, 64, 64)
@@ -268,9 +275,9 @@ def draw_horror_scene(draw, hook, niche, scene_index, total_scenes):
         draw.rounded_rectangle([x, 1060, x + 130, 1205], radius=14, fill=(255, 210, 85), outline=(12, 10, 20), width=6)
         draw.line([(x + 65, 1062), (x + 65, 1204)], fill=(12, 10, 20), width=4)
     # character in foreground
-    draw_character(draw, 280, 1130, 0.85, (80, 88, 120), "scared")
+    draw_character(draw, 245 - int(motion_phase * 70), 1130, 0.85, (80, 88, 120), "scared", motion_phase)
     # shadow creature / clue changes by scene
-    shift = (scene_index % 3) * 38
+    shift = (scene_index % 3) * 38 + int(motion_phase * 95)
     draw.ellipse([710 + shift, 970, 910 + shift, 1410], fill=(5, 5, 10))
     draw.ellipse([738 + shift, 850, 882 + shift, 1010], fill=(5, 5, 10))
     draw.ellipse([775 + shift, 910, 798 + shift, 935], fill=red)
@@ -281,7 +288,7 @@ def draw_horror_scene(draw, hook, niche, scene_index, total_scenes):
     draw.text((80, 55), f"CARTOON HORROR  {scene_index}/{total_scenes}", font=load_font(36), fill=(255, 220, 220))
 
 
-def draw_brainrot_scene(draw, hook, scene_index=1):
+def draw_brainrot_scene(draw, hook, scene_index=1, motion_phase=0):
     hot_pink = (255, 0, 110)
     blue = (58, 134, 255)
     yellow = (255, 230, 0)
@@ -289,22 +296,22 @@ def draw_brainrot_scene(draw, hook, scene_index=1):
     black = (0, 0, 0)
     draw.rectangle([0, 0, W, H], fill=yellow)
     for i in range(-2, 10):
-        x0 = i * 180 + (scene_index % 3) * 40
+        x0 = i * 180 + (scene_index % 3) * 40 + int(motion_phase * 90)
         draw.polygon([(x0, 0), (x0 + 95, 0), (x0 - 180, H), (x0 - 275, H)], fill=hot_pink if i % 2 else blue)
     for i in range(18):
-        cx = (80 + i * 115 + scene_index * 31) % W
+        cx = (80 + i * 115 + scene_index * 31 + int(motion_phase * 160)) % W
         cy = 140 + (i * 173) % 1500
         r = 34 + (i % 4) * 14
         draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=green if i % 2 else yellow, outline=black, width=5)
-    draw_character(draw, 305, 910, 0.95, hot_pink, "shock")
-    draw_robot(draw, 600, 900, blue)
+    draw_character(draw, 250 + int(motion_phase * 130), 910, 0.95, hot_pink, "shock", motion_phase)
+    draw_robot(draw, 610 - int(motion_phase * 80), 900, blue, motion_phase)
     outlined(draw, 65, 395, "NEW LORE", load_font(78), yellow, black, 7)
     outlined(draw, 680, 1265, "PLOT TWIST", load_font(54), green, black, 6)
     speech_bubble(draw, hook, 80, 125, 880, 250, fill=(255, 255, 255), outline=black)
     centered_lines(draw, "WAIT FOR IT", load_font(48), H - 180, 22, green, black, 5, 1)
 
 
-def draw_kids_scene(draw, hook, scene_index=1):
+def draw_kids_scene(draw, hook, scene_index=1, motion_phase=0):
     white = (255, 255, 255)
     yellow = (255, 220, 40)
     coral = (255, 90, 70)
@@ -325,33 +332,34 @@ def draw_kids_scene(draw, hook, scene_index=1):
         outlined(draw, sx, sy, "*", load_font(55), yellow, (200, 120, 0), 2)
     draw.rectangle([0, 1260, W, H], fill=(91, 214, 108))
     # friendly animal/cartoon friend
-    bx = 250 + (scene_index % 3) * 35
-    draw.ellipse([bx - 145, 855, bx + 145, 1145], fill=(255, 180, 115), outline=black, width=7)
-    draw.ellipse([bx - 118, 800, bx - 40, 900], fill=(255, 180, 115), outline=black, width=7)
-    draw.ellipse([bx + 40, 800, bx + 118, 900], fill=(255, 180, 115), outline=black, width=7)
-    draw.ellipse([bx - 58, 960, bx - 25, 993], fill=black)
-    draw.ellipse([bx + 25, 960, bx + 58, 993], fill=black)
-    draw.arc([bx - 55, 995, bx + 55, 1070], 10, 170, fill=black, width=8)
-    draw_character(draw, 705, 910, 0.82, purple, "happy")
+    bx = 215 + (scene_index % 3) * 35 + int(motion_phase * 95)
+    by = int(math.sin(motion_phase * math.pi * 2) * 20)
+    draw.ellipse([bx - 145, 855 + by, bx + 145, 1145 + by], fill=(255, 180, 115), outline=black, width=7)
+    draw.ellipse([bx - 118, 800 + by, bx - 40, 900 + by], fill=(255, 180, 115), outline=black, width=7)
+    draw.ellipse([bx + 40, 800 + by, bx + 118, 900 + by], fill=(255, 180, 115), outline=black, width=7)
+    draw.ellipse([bx - 58, 960 + by, bx - 25, 993 + by], fill=black)
+    draw.ellipse([bx + 25, 960 + by, bx + 58, 993 + by], fill=black)
+    draw.arc([bx - 55, 995 + by, bx + 55, 1070 + by], 10, 170, fill=black, width=8)
+    draw_character(draw, 705 - int(motion_phase * 75), 910, 0.82, purple, "happy", motion_phase)
     for idx, color in enumerate([(255, 0, 0), (255, 140, 0), (255, 230, 0), (0, 190, 0), (0, 100, 255), (160, 0, 220)]):
         draw.rectangle([0, H - 280 + idx * 22, W, H - 258 + idx * 22], fill=color)
     speech_bubble(draw, hook, 65, 130, 840, 245, fill=(255, 255, 255), outline=black)
     centered_lines(draw, "WATCH MORE!", load_font(46), H - 185, 20, white, black, 5, 1)
 
 
-def generate_frame(hook, output_path, niche="", style="dark", scene_index=1, total_scenes=1):
+def generate_frame(hook, output_path, niche="", style="dark", scene_index=1, total_scenes=1, motion_phase=0):
     style = (style or "dark").lower()
     img = Image.new("RGB", (W, H), color=(10, 10, 20))
     draw = ImageDraw.Draw(img)
 
     if style == "brainrot":
-        draw_brainrot_scene(draw, hook, scene_index)
+        draw_brainrot_scene(draw, hook, scene_index, motion_phase)
     elif style == "kids":
-        draw_kids_scene(draw, hook, scene_index)
+        draw_kids_scene(draw, hook, scene_index, motion_phase)
     elif style == "horror":
-        draw_horror_scene(draw, hook, niche, scene_index, total_scenes)
+        draw_horror_scene(draw, hook, niche, scene_index, total_scenes, motion_phase)
     else:
-        draw_dark_scene(draw, hook, niche, scene_index, total_scenes)
+        draw_dark_scene(draw, hook, niche, scene_index, total_scenes, motion_phase)
 
     img.save(output_path, "PNG")
     print(f"[generateFrame] Saved: {output_path} (style={style})", flush=True)
@@ -369,4 +377,5 @@ if __name__ == "__main__":
         args.get("style", "dark"),
         int(args.get("sceneIndex", 1)),
         int(args.get("totalScenes", 1)),
+        float(args.get("motionPhase", 0)),
     )
