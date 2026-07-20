@@ -371,7 +371,7 @@ async function renderLocalDebugVideo({ safeScript, hook, niche, resolvedStyle, v
     const durations = [];
     writeSubtitleFile({ subtitlePath, script: safeScript, duration, style: resolvedStyle });
     for (let i = 0; i < sceneTexts.length; i++) {
-      const cels = resolvedStyle === "horror" ? 3 : 4;
+      const cels = Math.min(3, Math.max(2, Number(process.env.CARTOON_CELS_PER_SCENE || 2)));
       const celDuration = baseDurations[i] / cels;
       for (let cel = 0; cel < cels; cel++) {
         const framePath = path.resolve(videoDir, `${id}_scene_${String(i + 1).padStart(2, "0")}_${String(cel + 1).padStart(2, "0")}.png`);
