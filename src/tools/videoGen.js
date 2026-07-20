@@ -47,17 +47,17 @@ function splitScriptIntoScenes(script, hook) {
   let bucket = "";
   for (const sentence of sentences) {
     const next = bucket ? `${bucket} ${sentence}` : sentence;
-    if (next.length > 72 && bucket) {
+    if (next.length > 56 && bucket) {
       sceneTexts.push(bucket);
       bucket = sentence;
     } else {
       bucket = next;
     }
-    if (sceneTexts.length >= 8) break;
+    if (sceneTexts.length >= 11) break;
   }
-  if (bucket && sceneTexts.length < 9) sceneTexts.push(bucket);
+  if (bucket && sceneTexts.length < 12) sceneTexts.push(bucket);
 
-  return sceneTexts.slice(0, 9).map((text) => cleanText(text, 130));
+  return sceneTexts.slice(0, 12).map((text) => cleanText(text, 110));
 }
 
 function wordsOf(text) {
@@ -82,7 +82,7 @@ function assEscape(text) {
 function captionChunks(script, style = "dark") {
   const words = wordsOf(script);
   const chunks = [];
-  const size = style === "horror" || style === "brainrot" || style === "faceless-reels" ? 4 : 5;
+  const size = style === "brainrot" ? 3 : style === "horror" || style === "faceless-reels" ? 4 : 4;
   for (let i = 0; i < words.length; i += size) {
     chunks.push(words.slice(i, i + size).join(" "));
   }
@@ -101,11 +101,11 @@ function writeSubtitleFile({ subtitlePath, script, duration, style }) {
     return `Dialogue: 0,${assTime(start)},${assTime(end)},Caption,,0,0,0,,${assEscape(chunk).toUpperCase()}`;
   });
 
-  const fontSize = style === "horror" ? 62 : style === "brainrot" ? 76 : style === "faceless-reels" ? 72 : 68;
+  const fontSize = style === "horror" ? 66 : style === "brainrot" ? 82 : style === "kids" ? 76 : style === "faceless-reels" ? 76 : 72;
   const primary = style === "horror" ? "&H00F5F5EB" : style === "kids" ? "&H00FFFFFF" : "&H00FFFFFF";
   const outline = style === "horror" ? "&H00000000" : "&H00101010";
   const shadow = style === "horror" ? 0 : 2;
-  const marginV = style === "horror" ? 245 : 210;
+  const marginV = style === "horror" ? 230 : style === "kids" ? 185 : 205;
 
   const ass = `[Script Info]
 ScriptType: v4.00+
@@ -127,7 +127,7 @@ ${events.join("\n")}
 function sceneDurations(sceneTexts, totalDuration) {
   const weights = sceneTexts.map((text) => Math.max(5, wordsOf(text).length));
   const totalWeight = weights.reduce((sum, value) => sum + value, 0) || 1;
-  return weights.map((weight) => Math.max(1.6, (weight / totalWeight) * totalDuration));
+  return weights.map((weight) => Math.max(1.15, (weight / totalWeight) * totalDuration));
 }
 
 async function audioDuration(audioPath) {
@@ -230,25 +230,34 @@ async function encodeVideo({ framePaths, audioPath, videoPath, duration, duratio
   const filters = framePaths.map((_, index) => {
     const sceneDuration = durations[index] || Math.max(2.2, duration / framePaths.length);
     const sceneFrames = Math.max(1, Math.round(sceneDuration * FPS));
-    const faster = style === "horror" || style === "brainrot";
+    const cartoon = style === "kids" || style === "brainrot" || style === "faceless-reels";
+    const faster = style === "horror" || style === "brainrot" || style === "kids";
     const zoomExpr = faster
-      ? "min(zoom+0.0042\\,1.18)"
+      ? "min(zoom+0.0075\\,1.28)"
       : index % 2 === 0
-        ? "min(zoom+0.0022\\,1.13)"
-        : "min(1.10\\,1.04+sin(on/24)*0.025)";
+        ? "min(zoom+0.0048\\,1.21)"
+        : "min(1.18\\,1.06+sin(on/13)*0.045)";
     const panX = faster
-      ? "iw/2-(iw/zoom/2)+sin(on/8)*42"
-      : index % 2 === 0 ? "iw/2-(iw/zoom/2)+sin(on/18)*28" : "iw/2-(iw/zoom/2)-sin(on/22)*24";
+      ? "iw/2-(iw/zoom/2)+sin(on/5)*74"
+      : index % 2 === 0 ? "iw/2-(iw/zoom/2)+sin(on/10)*52" : "iw/2-(iw/zoom/2)-sin(on/12)*48";
     const panY = faster
-      ? "ih/2-(ih/zoom/2)+cos(on/9)*38"
-      : index % 2 === 0 ? "ih/2-(ih/zoom/2)+cos(on/20)*22" : "ih/2-(ih/zoom/2)+sin(on/19)*26";
-    return `[${index}:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},zoompan=z='${zoomExpr}':x='${panX}':y='${panY}':d=${sceneFrames}:s=${WIDTH}x${HEIGHT}:fps=${FPS},trim=duration=${sceneDuration.toFixed(3)},setpts=PTS-STARTPTS[v${index}]`;
+      ? "ih/2-(ih/zoom/2)+cos(on/6)*64"
+      : index % 2 === 0 ? "ih/2-(ih/zoom/2)+cos(on/11)*44" : "ih/2-(ih/zoom/2)+sin(on/10)*46";
+    const base = `[${index}:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},zoompan=z='${zoomExpr}':x='${panX}':y='${panY}':d=${sceneFrames}:s=${WIDTH}x${HEIGHT}:fps=${FPS}`;
+    const extra = cartoon
+      ? ",eq=contrast=1.08:saturation=1.18,unsharp=5:5:0.5"
+      : "";
+    return `${base}${extra},trim=duration=${sceneDuration.toFixed(3)},setpts=PTS-STARTPTS[v${index}]`;
   });
   filters.push(`${framePaths.map((_, index) => `[v${index}]`).join("")}concat=n=${framePaths.length}:v=1:a=0[base]`);
   if (style === "horror") {
     filters.push(`[base]noise=alls=18:allf=t+u,eq=contrast=1.28:brightness=-0.045:saturation=0.65,vignette=PI/4,subtitles='${subtitleFilterPath(subtitlePath)}'[vout]`);
   } else if (style === "brainrot") {
-    filters.push(`[base]eq=contrast=1.18:saturation=1.35,unsharp=5:5:0.85,subtitles='${subtitleFilterPath(subtitlePath)}'[vout]`);
+    filters.push(`[base]eq=contrast=1.24:saturation=1.55,unsharp=5:5:0.95,subtitles='${subtitleFilterPath(subtitlePath)}'[vout]`);
+  } else if (style === "kids") {
+    filters.push(`[base]eq=contrast=1.12:saturation=1.28,unsharp=5:5:0.65,subtitles='${subtitleFilterPath(subtitlePath)}'[vout]`);
+  } else if (style === "faceless-reels") {
+    filters.push(`[base]eq=contrast=1.12:saturation=1.2,unsharp=5:5:0.65,subtitles='${subtitleFilterPath(subtitlePath)}'[vout]`);
   } else {
     filters.push(`[base]subtitles='${subtitleFilterPath(subtitlePath)}'[vout]`);
   }
