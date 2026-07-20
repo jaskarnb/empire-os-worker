@@ -141,7 +141,7 @@ async function audioDuration(audioPath) {
     "-show_entries", "format=duration",
     audioPath,
   ], { timeout: 30_000 });
-  return Math.min(Math.max(Math.ceil(parseFloat(stdout.trim()) || 30), 8), 58);
+  return Math.min(Math.max(Math.ceil(parseFloat(stdout.trim()) || 30), 21), 58);
 }
 
 async function videoDuration(videoPath) {
@@ -266,18 +266,19 @@ async function encodeVideo({ framePaths, audioPath, videoPath, duration, duratio
   } else {
     filters.push(`[base]subtitles='${subtitleFilterPath(subtitlePath)}'[vout]`);
   }
+  filters.push(`[${framePaths.length}:a]apad[aout]`);
 
   args.push(
     "-filter_complex", filters.join(";"),
     "-map", "[vout]",
-    "-map", `${framePaths.length}:a`,
+    "-map", "[aout]",
+    "-t", duration.toFixed(3),
     "-c:v", "libx264",
     "-preset", "veryfast",
     "-crf", "24",
     "-c:a", "aac",
     "-b:a", "128k",
     "-pix_fmt", "yuv420p",
-    "-shortest",
     videoPath,
   );
 
@@ -391,7 +392,7 @@ async function renderLocalDebugVideo({ safeScript, hook, niche, resolvedStyle, v
     }
 
     await encodeVideo({ framePaths, audioPath, videoPath, duration, durations, subtitlePath, style: resolvedStyle });
-    const validation = await assertRenderableVideo(videoPath, { minDuration: 8, requireAudio: true, requireVertical: true });
+    const validation = await assertRenderableVideo(videoPath, { minDuration: 20, requireAudio: true, requireVertical: true });
     recordRenderSpend({ source: "local-debug", estimatedCost: Number(process.env.LOCAL_RENDER_COST_USD || 0.02), videoPath });
     console.log(`[VideoGen] OK ${videoPath} (${validation.width}x${validation.height}, ${validation.duration.toFixed(1)}s)`);
     return videoPath;
