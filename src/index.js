@@ -41,13 +41,52 @@ function sendHtml(res, statusCode, body) {
   res.end(body);
 }
 
-function sendVideo(res, filePath) {
+function sendVideo(req, res, filePath) {
   const stat = fs.statSync(filePath);
-  res.writeHead(200, {
+  const range = req.headers.range;
+  const commonHeaders = {
     "Content-Type": "video/mp4",
-    "Content-Length": stat.size,
+    "Accept-Ranges": "bytes",
     "Cache-Control": "no-store",
+  };
+
+  if (range) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (!match) {
+      res.writeHead(416, {
+        ...commonHeaders,
+        "Content-Range": `bytes */${stat.size}`,
+      });
+      res.end();
+      return;
+    }
+
+    const start = match[1] === "" ? 0 : Number(match[1]);
+    const end = match[2] === "" ? stat.size - 1 : Math.min(Number(match[2]), stat.size - 1);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= stat.size) {
+      res.writeHead(416, {
+        ...commonHeaders,
+        "Content-Range": `bytes */${stat.size}`,
+      });
+      res.end();
+      return;
+    }
+
+    res.writeHead(206, {
+      ...commonHeaders,
+      "Content-Length": end - start + 1,
+      "Content-Range": `bytes ${start}-${end}/${stat.size}`,
+    });
+    if (req.method === "HEAD") return res.end();
+    fs.createReadStream(filePath, { start, end }).pipe(res);
+    return;
+  }
+
+  res.writeHead(200, {
+    ...commonHeaders,
+    "Content-Length": stat.size,
   });
+  if (req.method === "HEAD") return res.end();
   fs.createReadStream(filePath).pipe(res);
 }
 
@@ -67,8 +106,10 @@ function latestVideoPath() {
     .filter((name) => name.toLowerCase().endsWith(".mp4"))
     .map((name) => {
       const filePath = path.join(videoDir, name);
-      return { filePath, mtime: fs.statSync(filePath).mtimeMs };
+      const stat = fs.statSync(filePath);
+      return { filePath, mtime: stat.mtimeMs, size: stat.size };
     })
+    .filter((video) => video.size > 0)
     .sort((a, b) => b.mtime - a.mtime);
   if (!videos.length) throw new Error(`No MP4 videos found in ${videoDir}`);
   return videos[0].filePath;
@@ -274,9 +315,9 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/ops/latest-video") {
+  if ((req.method === "GET" || req.method === "HEAD") && url.pathname === "/ops/latest-video") {
     try {
-      sendVideo(res, latestVideoPath());
+      sendVideo(req, res, latestVideoPath());
     } catch (error) {
       sendJson(res, 404, { status: "error", error: error.message, ts: new Date().toISOString() });
     }
