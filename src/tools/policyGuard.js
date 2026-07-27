@@ -8,6 +8,10 @@ const RISK_PATTERNS = [
   { pattern: /\b(hate crime|racial slur|terrorist manifesto)\b/i, reason: "hate or extremist content" },
   { pattern: /\b(guaranteed profit|risk[- ]free money|100% return|can't lose)\b/i, reason: "misleading financial claim" },
   { pattern: /\b(medical cure|cures cancer|stop taking medication)\b/i, reason: "unsafe medical claim" },
+  { pattern: /\b(spongebob|patrick star|squidward|fairly oddparents?|cosmo and wanda|phineas|ferb|nickelodeon|disney|pixar|marvel|pokemon|mickey mouse|peppa pig|cocomelon)\b/i, reason: "copyrighted or trademarked character/IP reference" },
+  { pattern: /\b(copied from|stolen from|reuploaded|screen recorded|watermark|logo in corner)\b/i, reason: "reused or non-original media risk" },
+  { pattern: /\b(get rich quick|make \$?\d+k overnight|double your money|free money glitch|casino|sportsbook|gambling)\b/i, reason: "monetization-risk money or gambling claim" },
+  { pattern: /\b(gore|graphic blood|decapitated|torture|mutilated)\b/i, reason: "graphic violence monetization risk" },
   { pattern: SECRET_TOKEN_PATTERN, reason: "secret or credential leak" },
 ];
 

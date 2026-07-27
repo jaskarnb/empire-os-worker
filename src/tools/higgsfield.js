@@ -49,6 +49,8 @@ function stylePrompt({ script, hook, niche, style }) {
     "Use the energy of classic cable-TV cartoons: bright colors, bold silhouettes, exaggerated reactions, quick visual jokes, and playful scene blocking.",
     "No copyrighted characters, no lookalike characters, no copied show art style, no copied creator footage, no logos.",
     "Create original characters, locations, props, colors, and costumes that fit the niche and theme.",
+    "Monetization-safe: family/brand-safe, original IP, no reused footage, no watermarks, no gore, no sexual content, no hateful content, no harassment, no dangerous stunts, no scam claims, and no misleading money promises.",
+    "Keep jokes playful and advertiser-friendly. The video should feel safe to monetize on TikTok, Instagram Reels, and YouTube Shorts.",
   ];
 
   const styleLines = {
