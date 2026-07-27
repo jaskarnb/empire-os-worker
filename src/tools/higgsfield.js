@@ -106,14 +106,16 @@ function pushParam(args, flagName, value) {
 
 function modelParams(style) {
   const horror = style === "horror";
+  const genreOverride = process.env[`HIGGSFIELD_${String(style).toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_GENRE`];
   return {
     aspectRatioFlag: process.env.HIGGSFIELD_ASPECT_RATIO_PARAM || "aspect_ratio",
     aspectRatio: process.env.HIGGSFIELD_ASPECT_RATIO || "9:16",
     duration: durationValue(),
-    genre: process.env.HIGGSFIELD_GENRE || (horror ? "horror" : style === "faceless-reels" ? "social" : ""),
+    genre: genreOverride || (horror ? process.env.HIGGSFIELD_GENRE || "horror" : style === "faceless-reels" ? "social" : ""),
     mode: process.env.HIGGSFIELD_MODE || "pro",
     sound: process.env.HIGGSFIELD_SOUND || "on",
-    resolution: process.env.HIGGSFIELD_RESOLUTION || "",
+    resolutionFlag: process.env.HIGGSFIELD_RESOLUTION_PARAM || "",
+    resolution: process.env.HIGGSFIELD_RESOLUTION_PARAM ? process.env.HIGGSFIELD_RESOLUTION || "" : "",
   };
 }
 
@@ -173,7 +175,7 @@ export async function generateHiggsfieldVideo({ script, hook, niche = "", style 
   pushParam(args, "genre", params.genre);
   pushParam(args, "mode", params.mode);
   pushParam(args, "sound", params.sound);
-  pushParam(args, "resolution", params.resolution);
+  pushParam(args, params.resolutionFlag, params.resolution);
 
   console.log(`[Higgsfield] Generating ${style} video with ${model}...`);
   await ensureWorkspaceSelected();
