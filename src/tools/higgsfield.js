@@ -41,7 +41,7 @@ function cleanText(value, maxLength = 1800) {
 function stylePrompt({ script, hook, niche, style }) {
   const base = [
     "Create a vertical 9:16 short-form video as an original 3D animated cartoon.",
-    "Target length: 20-59 seconds. Never make this shorter than 20 seconds.",
+    "Target length: 10-12 seconds, matching the model limit. Make every second active and useful.",
     "It must be real character animation, not a slideshow, not static key art, and not a still image with camera movement.",
     "The visuals must clearly match the voiceover/script beat by beat.",
     "Use strong pacing, visual continuity, readable captions, squash-and-stretch poses, expressive faces, clear gestures, walking, reaching, reacting, and prop interaction.",
@@ -94,9 +94,9 @@ function stylePrompt({ script, hook, niche, style }) {
 }
 
 function durationValue() {
-  const raw = Number.parseInt(process.env.HIGGSFIELD_DURATION || "20", 10);
-  if (!Number.isFinite(raw)) return 20;
-  return Math.min(Math.max(raw, 20), 59);
+  const raw = Number.parseInt(process.env.HIGGSFIELD_DURATION || "12", 10);
+  if (!Number.isFinite(raw)) return 12;
+  return Math.min(Math.max(raw, 5), 12);
 }
 
 function pushParam(args, flagName, value) {

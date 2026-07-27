@@ -332,7 +332,7 @@ async function renderHiggsfieldFinalVideo({ sourcePath, safeScript, resolvedStyl
       outputPath,
     ], { timeout: 240_000, maxBuffer: 20 * 1024 * 1024 });
 
-    const validation = await assertRenderableVideo(outputPath, { minDuration: 20, requireAudio: true, requireVertical: true });
+    const validation = await assertRenderableVideo(outputPath, { minDuration: Math.min(20, duration), requireAudio: true, requireVertical: true });
     console.log(`[VideoGen] Captioned Higgsfield final OK ${outputPath} (${validation.duration.toFixed(1)}s)`);
     try { fs.unlinkSync(sourcePath); } catch {}
     return outputPath;
