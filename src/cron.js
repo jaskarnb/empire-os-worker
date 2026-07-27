@@ -174,7 +174,7 @@ function fallbackCategoryFor(channel) {
   return "kids";
 }
 
-function fallbackPostFor(channel) {
+function fallbackPostFor(channel, offset = 0) {
   const category = fallbackCategoryFor(channel);
   const posts = FALLBACK_POSTS[category] || FALLBACK_POSTS.kids;
   const recentTitles = new Set(
@@ -184,7 +184,7 @@ function fallbackPostFor(channel) {
   );
   const unused = posts.filter((post) => !recentTitles.has(post.title.toLowerCase()));
   const pool = unused.length ? unused : posts;
-  const index = Math.floor(Date.now() / (60 * 60 * 1000)) % pool.length;
+  const index = (Math.floor(Date.now() / (60 * 60 * 1000)) + offset) % pool.length;
   return pool[index];
 }
 
@@ -212,7 +212,7 @@ function selectFallbackChannels(channels) {
 
 async function scheduleVerifiedFallback(reason) {
   if (fallbackRunning) return { status: "skipped", reason: "fallback-running" };
-  const targetUpcoming = Number(process.env.GROWTH_MIN_UPCOMING_POSTS || 3);
+  const targetUpcoming = Number(process.env.GROWTH_MIN_UPCOMING_POSTS || 9);
   const upcoming = getUpcomingScheduledPosts(targetUpcoming);
   if (upcoming.length >= targetUpcoming) return { status: "skipped", reason: "queue-target-met", upcoming: upcoming.length, targetUpcoming };
 
@@ -227,9 +227,10 @@ async function scheduleVerifiedFallback(reason) {
     const scheduled = [];
     const failures = [];
 
-    for (let i = 0; i < needed && i < channelsToTest.length; i++) {
-      const channel = channelsToTest[i];
-      const post = fallbackPostFor(channel);
+    for (let i = 0; i < needed; i++) {
+      const channel = channelsToTest[i % channelsToTest.length];
+      const round = Math.floor(i / channelsToTest.length);
+      const post = fallbackPostFor(channel, round);
       const delay = Number(process.env.FALLBACK_SCHEDULE_DELAY_MINUTES || 35) + i * Number(process.env.GROWTH_FALLBACK_SPACING_MINUTES || 75);
       const scheduleAt = new Date(Date.now() + delay * 60 * 1000).toISOString();
 
