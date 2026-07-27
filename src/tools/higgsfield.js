@@ -18,7 +18,8 @@ export function isHiggsfieldConfigured() {
 async function ensureWorkspaceSelected() {
   const workspaceId = process.env.HIGGSFIELD_WORKSPACE_ID || process.env.HF_WORKSPACE_ID;
   if (!workspaceId) {
-    throw new Error("Higgsfield workspace is not configured. Set HIGGSFIELD_WORKSPACE_ID in Railway, then redeploy.");
+    console.warn("[Higgsfield] HIGGSFIELD_WORKSPACE_ID is not set; using the CLI's default authenticated workspace.");
+    return;
   }
 
   await execFileAsync(cliPath(), ["workspace", "set", workspaceId], {
