@@ -303,10 +303,10 @@ export async function runDailyMeeting() {
           hook: post.hook,
           niche: config.niche,
           style: config.style || "dark",
-          allowLocalFallback: true,
+          allowLocalFallback: process.env.ALLOW_LOCAL_VIDEO_FALLBACK === "true",
         });
         console.log(`[Nova] Scheduling video at ${date}...`);
-        const usesStockStyle = ["horror", "beauty", "kids", "faceless-reels"].includes(config.style || "dark") && process.env.PEXELS_API_KEY;
+        const usesStockStyle = process.env.VIDEO_STOCK_FALLBACK_ENABLED === "true" && process.env.HIGGSFIELD_ENABLED !== "true" && ["horror", "beauty", "kids", "faceless-reels"].includes(config.style || "dark") && process.env.PEXELS_API_KEY;
         const content = usesStockStyle ? addPexelsAttribution(post.caption) : post.caption;
         const integrationId = channelId(ch);
         const postiz = await schedulePost({ integrationId, content, date, mediaPath: videoPath, requireMedia: true });

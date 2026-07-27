@@ -408,13 +408,6 @@ export async function generateVideo({ script, hook, niche = "", style = "auto", 
   if (!safeScript) throw new Error("No script text supplied");
   const resolvedStyle = resolveStyle({ niche, style });
 
-  // Stock footage pipeline for faceless reel-style videos, horror, kids, and beauty.
-  // Takes priority over Higgsfield when PEXELS_API_KEY is configured
-  if (["horror", "kids", "beauty", "faceless-reels"].includes(resolvedStyle) && process.env.PEXELS_API_KEY) {
-    const { generateStockFootageVideo } = await import("./stockVideoGen.js");
-    return generateStockFootageVideo({ script: safeScript, hook, niche, style: resolvedStyle, voice });
-  }
-
   if (isHiggsfieldConfigured()) {
     const estimatedCost = Number(process.env.HIGGSFIELD_RENDER_COST_USD || 0.35);
     assertSpendAllowed(estimatedCost);
@@ -427,6 +420,11 @@ export async function generateVideo({ script, hook, niche = "", style = "auto", 
       if (!allowLocalDebug(allowLocalFallback)) throw error;
       console.warn(`[VideoGen] Higgsfield failed (${error.message}); using allowed local fallback renderer.`);
     }
+  }
+
+  if (process.env.VIDEO_STOCK_FALLBACK_ENABLED === "true" && ["horror", "kids", "beauty", "faceless-reels"].includes(resolvedStyle) && process.env.PEXELS_API_KEY) {
+    const { generateStockFootageVideo } = await import("./stockVideoGen.js");
+    return generateStockFootageVideo({ script: safeScript, hook, niche, style: resolvedStyle, voice });
   }
 
   if (allowLocalDebug(allowLocalFallback)) {

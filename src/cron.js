@@ -245,7 +245,7 @@ async function scheduleVerifiedFallback(reason) {
           });
         } catch (error) {
           const canUseLocalFallback = /Higgsfield workspace is not configured|HIGGSFIELD_ENABLED is not true|Higgsfield is required/i.test(error.message);
-          if (!canUseLocalFallback || process.env.DISABLE_VERIFIED_LOCAL_FALLBACK === "true") throw error;
+          if (!canUseLocalFallback || process.env.ALLOW_LOCAL_VIDEO_FALLBACK !== "true") throw error;
           console.warn(`[Cron] Higgsfield unavailable for fallback (${error.message}); rendering verified local MP4 instead.`);
           videoPath = await generateVideo({
             script: post.script,

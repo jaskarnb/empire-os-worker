@@ -39,44 +39,46 @@ function cleanText(value, maxLength = 1800) {
 
 function stylePrompt({ script, hook, niche, style }) {
   const base = [
-    "Create a vertical 9:16 short-form video with real cinematic motion.",
+    "Create a vertical 9:16 short-form video as an original 3D animated cartoon.",
     "Target length: 20-59 seconds. Never make this shorter than 20 seconds.",
-    "It must be a generated video, not a slideshow and not a static image.",
+    "It must be real character animation, not a slideshow, not static key art, and not a still image with camera movement.",
     "The visuals must clearly match the voiceover/script beat by beat.",
-    "Use strong pacing, visual continuity, readable captions, and retention-focused camera movement.",
+    "Use strong pacing, visual continuity, readable captions, squash-and-stretch poses, expressive faces, clear gestures, walking, reaching, reacting, and prop interaction.",
     "Use a clear setup, tension/build, payoff, and ending.",
-    "No copyrighted characters, no copied creator footage, no logos.",
+    "Use the energy of classic cable-TV cartoons: bright colors, bold silhouettes, exaggerated reactions, quick visual jokes, and playful scene blocking.",
+    "No copyrighted characters, no lookalike characters, no copied show art style, no copied creator footage, no logos.",
+    "Create original characters, locations, props, colors, and costumes that fit the niche and theme.",
   ];
 
   const styleLines = {
     horror: [
-      "Realistic caught-on-camera footage.",
-      "Handheld phone camera moving through a dark hallway, backyard, porch, or quiet house at night.",
-      "Shaky motion, motion blur. Person hears something, investigates, sees a clue, then gets a sudden horrifying reveal.",
-      "Cinematic tension build. Found footage aesthetic. No CGI monsters.",
-      "Scary low voice, silence before the reveal, one clean jump scare, no graphic gore.",
-      "Scary atmosphere, rising dread, clear payoff.",
-      "Genre: horror. Sound on.",
+      "Style: spooky 3D cartoon mystery with expressive original characters.",
+      "The character tiptoes, hides, investigates clues, reacts with big eyes, and physically runs from the reveal.",
+      "Use dramatic shadows, elastic reactions, playful suspense, and one clear non-graphic scare payoff.",
+      "Scary atmosphere, rising dread, clear payoff. Sound on.",
     ],
     brainrot: [
-      "Style: fast chaotic viral meme video with exaggerated motion and quick visual punchlines.",
+      "Style: fast chaotic 3D viral cartoon with exaggerated motion and quick visual punchlines.",
       "Bright, high-energy, funny, safe for teen audiences.",
+      "The main character should move through multiple actions: panic, chase an object, jump, point, dodge, celebrate, collapse, or transform in a funny safe way.",
       "Use fast voice, meme pacing, clear captions, and an understandable mini-story.",
     ],
     kids: [
-      "Style: cheerful, colorful, safe kids video with friendly motion and simple happy visuals.",
+      "Style: cheerful, colorful 3D kids cartoon with friendly motion and simple happy visuals.",
+      "Characters should walk, wave, bounce, pick up objects, solve a tiny problem, and celebrate at the end.",
       "Use cheerful voice, bright music, simple captions, and a friendly mini-story with a safe lesson.",
       "No scary images, no danger, no inappropriate content.",
     ],
     "faceless-reels": [
-      "Style: polished faceless reel built from cinematic b-roll, not a template clone.",
-      "Use clean phone, laptop, street, desk, product, and lifestyle shots that match the script beat by beat.",
+      "Style: original 3D animated cartoon explainer, not stock b-roll and not a faceless template clone.",
+      "Use an original mascot/character inside a themed cartoon world that matches the niche: desk, phone, money, school, AI lab, gym, kitchen, or city as needed.",
+      "The character must do things on screen: open apps, chase charts, dodge notifications, build objects, point at evidence, react to mistakes, and hit a visual payoff.",
       "Fast retention pacing: hook in the first second, 4-7 quick visual beats, bold readable captions, and a clear payoff.",
       "No face-to-camera presenter, no copied template, no logos, no creator footage, no exact wording from references.",
-      "Feels like a high-quality automated faceless TikTok/Reel: modern, sharp, clear, useful, and rewatchable.",
     ],
     dark: [
-      "Style: polished social media explainer with cinematic b-roll, smooth motion, and bold visual hooks.",
+      "Style: polished 3D animated cartoon explainer with bold visual hooks and active character movement.",
+      "Use a niche-specific original character who acts out the problem and payoff instead of showing generic b-roll.",
     ],
   };
 
@@ -86,7 +88,7 @@ function stylePrompt({ script, hook, niche, style }) {
     `Niche: ${cleanText(niche, 220)}`,
     `Opening hook: ${cleanText(hook, 120)}`,
     `Voiceover/script: ${cleanText(script, 1400)}`,
-    "Output: vertical, social-ready, fully animated/generated video with enough motion to hold attention.",
+    "Output: vertical, social-ready, fully animated/generated original 3D cartoon with active characters and enough motion to hold attention.",
   ].join("\n"));
 }
 

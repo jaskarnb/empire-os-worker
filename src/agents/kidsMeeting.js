@@ -358,7 +358,7 @@ export async function runKidsMeeting() {
           niche: config.niche,
           style: "kids",
           voice: "en-US-AnaNeural",
-          allowLocalFallback: true,
+          allowLocalFallback: process.env.ALLOW_LOCAL_VIDEO_FALLBACK === "true",
         });
         const integrationId = channelId(ch);
         const postiz = await schedulePost({ integrationId, content: post.caption, date, mediaPath: videoPath, requireMedia: true });

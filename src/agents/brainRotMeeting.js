@@ -264,7 +264,7 @@ export async function runBrainRotMeeting() {
           niche: config.niche,
           style: "brainrot",
           voice: "en-US-JennyNeural",
-          allowLocalFallback: true,
+          allowLocalFallback: process.env.ALLOW_LOCAL_VIDEO_FALLBACK === "true",
         });
         const integrationId = channelId(ch);
         const postiz = await schedulePost({ integrationId, content: post.caption, date, mediaPath: videoPath, requireMedia: true });
