@@ -51,6 +51,9 @@ function stylePrompt({ script, hook, niche, style }) {
     "Create original characters, locations, props, colors, and costumes that fit the niche and theme.",
     "Monetization-safe: family/brand-safe, original IP, no reused footage, no watermarks, no gore, no sexual content, no hateful content, no harassment, no dangerous stunts, no scam claims, and no misleading money promises.",
     "Keep jokes playful and advertiser-friendly. The video should feel safe to monetize on TikTok, Instagram Reels, and YouTube Shorts.",
+    "Audio is required. Use character-matched voices, not a generic narrator: the voice age, energy, emotion, accent, and pacing should fit the visible cartoon character.",
+    "Keep voice timing synced to the character's mouth movement, facial expression, gestures, and scene action.",
+    "Use clean, understandable speech with no robotic monotone, no distorted voices, and no copyrighted character impressions.",
   ];
 
   const styleLines = {
@@ -58,17 +61,20 @@ function stylePrompt({ script, hook, niche, style }) {
       "Style: spooky 3D cartoon mystery with expressive original characters.",
       "The character tiptoes, hides, investigates clues, reacts with big eyes, and physically runs from the reveal.",
       "Use dramatic shadows, elastic reactions, playful suspense, and one clear non-graphic scare payoff.",
+      "Voice: hushed, tense, storyteller-like, with scared reactions that match the character's face. No graphic or aggressive delivery.",
       "Scary atmosphere, rising dread, clear payoff. Sound on.",
     ],
     brainrot: [
       "Style: fast chaotic 3D viral cartoon with exaggerated motion and quick visual punchlines.",
       "Bright, high-energy, funny, safe for teen audiences.",
       "The main character should move through multiple actions: panic, chase an object, jump, point, dodge, celebrate, collapse, or transform in a funny safe way.",
+      "Voice: fast, expressive teen/young-adult cartoon energy with comedic timing, surprised yelps, and playful reactions that match the character.",
       "Use fast voice, meme pacing, clear captions, and an understandable mini-story.",
     ],
     kids: [
       "Style: cheerful, colorful 3D kids cartoon with friendly motion and simple happy visuals.",
       "Characters should walk, wave, bounce, pick up objects, solve a tiny problem, and celebrate at the end.",
+      "Voice: warm, cheerful, gentle, and age-appropriate, like a friendly storybook character. Never scary, sarcastic, or adult-themed.",
       "Use cheerful voice, bright music, simple captions, and a friendly mini-story with a safe lesson.",
       "No scary images, no danger, no inappropriate content.",
     ],
@@ -76,12 +82,14 @@ function stylePrompt({ script, hook, niche, style }) {
       "Style: original 3D animated cartoon explainer, not stock b-roll and not a faceless template clone.",
       "Use an original mascot/character inside a themed cartoon world that matches the niche: desk, phone, money, school, AI lab, gym, kitchen, or city as needed.",
       "The character must do things on screen: open apps, chase charts, dodge notifications, build objects, point at evidence, react to mistakes, and hit a visual payoff.",
+      "Voice: clear creator/mascot voice that fits the character and niche, confident but friendly, with emotional beats matching the character's actions.",
       "Fast retention pacing: hook in the first second, 4-7 quick visual beats, bold readable captions, and a clear payoff.",
       "No face-to-camera presenter, no copied template, no logos, no creator footage, no exact wording from references.",
     ],
     dark: [
       "Style: polished 3D animated cartoon explainer with bold visual hooks and active character movement.",
       "Use a niche-specific original character who acts out the problem and payoff instead of showing generic b-roll.",
+      "Voice: clean, confident, expressive, and matched to the mascot's personality and on-screen emotions.",
     ],
   };
 
